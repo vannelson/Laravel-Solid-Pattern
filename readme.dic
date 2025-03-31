@@ -1,0 +1,3 @@
+php artisan migrate --path=database/migrations/YYYY_MM_DD_create_albums_table.php
+php artisan migrate --path=database/migrations/YYYY_MM_DD_create_songs_table.php
+php artisan migrate --path=database/migrations/YYYY_MM_DD_create_reactions_table.php
