@@ -1,0 +1,26 @@
+{
+	"authHost": "http://localhost",
+	"authEndpoint": "/broadcasting/auth",
+	"clients": [],
+	"database": "redis",
+	"databaseConfig": {
+		"redis": {
+			"host": "127.0.0.1",
+			"port": "6379",
+			"keyPrefix": ""
+		},
+		"sqlite": {}
+	},
+	"devMode": true,
+	"host": null,
+	"port": 6001,
+	"protocol": "http",
+	"socketio": {},
+	"allowedOrigins": [
+		"http://localhost:9000"
+	],
+	"sslCertPath": "",
+	"sslKeyPath": "",
+	"sslCertChainPath": "",
+	"sslPassphrase": ""
+}

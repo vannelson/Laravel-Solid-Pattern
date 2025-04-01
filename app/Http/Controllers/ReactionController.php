@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\Contracts\ReactionServiceInterface;
 use Illuminate\Http\JsonResponse;
 use App\Traits\ResponseTrait;
+use App\Events\ReactionUpdated; // Import the broadcastable event
 
 /**
  * Class ReactionController
@@ -14,7 +15,7 @@ use App\Traits\ResponseTrait;
 class ReactionController extends Controller
 {
     use ResponseTrait;
-    
+
     protected ReactionServiceInterface $reactionService;
 
     public function __construct(ReactionServiceInterface $reactionService)
@@ -32,8 +33,14 @@ class ReactionController extends Controller
     public function addOrUpdateReaction(int $songId, int $reactionType): JsonResponse
     {
         try {
-            $this->reactionService->addOrUpdateReaction($songId, $reactionType);
-            return $this->success('Reaction saved successfully!');
+            // Update or add the reaction using your service.
+            $reaction = $this->reactionService->addOrUpdateReaction($songId, $reactionType);
+
+            // Broadcast the updated reaction for real-time update.
+            broadcast(new ReactionUpdated($reaction));
+
+            // Convert the Reaction model to an array to satisfy the ResponseTrait.
+            return $this->success('Reaction saved successfully!', $reaction->toArray());
         } catch (\Exception $e) {
             return $this->error('Failed to save reaction.', 500);
         }
@@ -48,8 +55,14 @@ class ReactionController extends Controller
     public function removeReaction(int $songId): JsonResponse
     {
         try {
-            $this->reactionService->removeReaction($songId);
-            return $this->success('Reaction removed successfully!');
+            // Remove the reaction using your service.
+            $reaction = $this->reactionService->removeReaction($songId);
+
+            // Broadcast the removal/update event for real-time update.
+            broadcast(new ReactionUpdated($reaction));
+
+            // Convert the Reaction model to an array.
+            return $this->success('Reaction removed successfully!', $reaction->toArray());
         } catch (\Exception $e) {
             return $this->error('Failed to remove reaction.', 500);
         }
@@ -65,7 +78,8 @@ class ReactionController extends Controller
     {
         try {
             $reaction = $this->reactionService->getReaction($songId);
-            return $this->success('Reaction retrieved successfully!', $reaction);
+            // If reaction exists, return its array representation; otherwise, return null.
+            return $this->success('Reaction retrieved successfully!', $reaction ? $reaction->toArray() : null);
         } catch (\Exception $e) {
             return $this->error('Failed to retrieve reaction.', 500);
         }
