@@ -23,6 +23,7 @@ class SongResource extends JsonResource
             'title'           => $this->title,
             'artist'          => $this->artist,
             'duration'        => $this->duration,
+            'url'             => $this->url,
             'created_at'      => $this->created_at->toDateTimeString(),
             'updated_at'      => $this->updated_at->toDateTimeString(),
             'album'           => new AlbumResource($this->whenLoaded('album')),

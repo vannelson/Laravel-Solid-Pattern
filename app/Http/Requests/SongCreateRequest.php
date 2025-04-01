@@ -18,6 +18,7 @@ class SongCreateRequest extends FormRequest
             'title' => 'required|string|max:255',
             'artist' => 'required|string|max:255',
             'duration' => 'required|integer|min:1',
+            'url' => 'required',
         ];
     }
 }
