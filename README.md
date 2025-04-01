@@ -1,21 +1,14 @@
-Laravel Setup Guide
+# Laravel Setup Commands (Run one by one)
 
-Install Dependencies
-
+# 1. Install dependencies
 composer install
 
-Configure Environment
-
-Copy .env.example to .env
-
-Set database credentials in .env
-
-Generate application key:
-
+# 2. Configure environment
+cp .env.example .env
 php artisan key:generate
+# Remember to set your DB credentials in the .env file
 
-Run Migrations One by One
-
+# 3. Run migrations
 php artisan migrate --path=database/migrations/2014_10_12_000000_create_users_table.php
 php artisan migrate --path=database/migrations/2014_10_12_100000_create_password_reset_tokens_table.php
 php artisan migrate --path=database/migrations/2019_08_19_000000_create_failed_jobs_table.php
@@ -25,17 +18,12 @@ php artisan migrate --path=database/migrations/2025_03_29_131410_create_albums_t
 php artisan migrate --path=database/migrations/2025_03_29_131410_create_songs_table.php
 php artisan migrate --path=database/migrations/2025_03_29_131410_create_reactions_table.php
 
-Run Seeders
-
+# 4. Seed database
 php artisan db:seed
 
-Start Development Server
-
+# 5. Start server
 php artisan serve
 
-Additional Commands
-
-Clear cache: php artisan cache:clear
-
-View routes: php artisan route:list
-
+# Additional useful commands:
+# php artisan cache:clear
+# php artisan route:list
