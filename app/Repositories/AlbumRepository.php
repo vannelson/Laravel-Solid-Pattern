@@ -26,7 +26,7 @@ class AlbumRepository extends BaseRepository implements AlbumRepositoryInterface
     public function listAlbums(array $filters = [], array $order = [], int $limit = 10, int $page = 1): LengthAwarePaginator
     {
         $query = $this->model->newQuery()
-            ->with(['user']) 
+            ->with(['user', 'songs']) 
             ->withCount('songs');
 
         // Apply filters
