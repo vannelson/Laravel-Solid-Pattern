@@ -17,8 +17,7 @@ class SongCreateRequest extends FormRequest
             'album_id' => 'required|exists:albums,id',
             'title' => 'required|string|max:255',
             'artist' => 'required|string|max:255',
-            'duration' => 'required|integer|min:1',
-            'url' => 'required',
+            'url' => 'required'
         ];
     }
 }
