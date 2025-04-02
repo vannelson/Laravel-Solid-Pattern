@@ -33,13 +33,10 @@ class ReactionController extends Controller
     public function addOrUpdateReaction(int $songId, int $reactionType): JsonResponse
     {
         try {
-            // Update or add the reaction using your service.
             $reaction = $this->reactionService->addOrUpdateReaction($songId, $reactionType);
 
-            // Broadcast the updated reaction for real-time update.
             broadcast(new ReactionUpdated($reaction));
 
-            // Convert the Reaction model to an array to satisfy the ResponseTrait.
             return $this->success('Reaction saved successfully!', $reaction->toArray());
         } catch (\Exception $e) {
             return $this->error('Failed to save reaction.', 500);
@@ -55,13 +52,10 @@ class ReactionController extends Controller
     public function removeReaction(int $songId): JsonResponse
     {
         try {
-            // Remove the reaction using your service.
             $reaction = $this->reactionService->removeReaction($songId);
 
-            // Broadcast the removal/update event for real-time update.
             broadcast(new ReactionUpdated($reaction));
 
-            // Convert the Reaction model to an array.
             return $this->success('Reaction removed successfully!', $reaction->toArray());
         } catch (\Exception $e) {
             return $this->error('Failed to remove reaction.', 500);
