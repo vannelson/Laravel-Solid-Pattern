@@ -25,10 +25,8 @@ class AlbumRepository extends BaseRepository implements AlbumRepositoryInterface
      */
     public function listAlbums(array $filters = [], array $order = [], int $limit = 10, int $page = 1): LengthAwarePaginator
     {
-        $query = $this->model->newQuery()
-            ->with(['user', 'songs']) 
-            ->withCount('songs');
-
+        $query = $this->model->newQuery()->withCount('songs'); 
+    
         // Apply filters
         if (!empty($filters['title'])) {
             $query->where('title', 'LIKE', '%' . $filters['title'] . '%');
@@ -36,7 +34,7 @@ class AlbumRepository extends BaseRepository implements AlbumRepositoryInterface
         if (!empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
         }
-
+    
         // Order by song count or custom order
         if (!empty($order)) {
             [$orderBy, $dir] = $order;
@@ -44,7 +42,15 @@ class AlbumRepository extends BaseRepository implements AlbumRepositoryInterface
         } else {
             $query->orderBy('songs_count', 'desc'); 
         }
-
-        return $query->paginate($limit, ['*'], 'page', $page);
+    
+        // Paginate without eager loading relationships
+        $albums = $query->paginate($limit, ['*'], 'page', $page);
+    
+        // Lazy load relationships
+        $albums->each(function ($album) {
+            $album->load(['user', 'songs']);
+        });
+    
+        return $albums;
     }
 }
