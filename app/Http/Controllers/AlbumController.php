@@ -38,16 +38,16 @@ class AlbumController extends Controller
     public function list(Request $request): JsonResponse
     {
         $filters = Arr::get($request->all(), 'filters', []);
-        $order = Arr::get($request->all(), 'order', ['songs_count', 'desc']);
+        $order = Arr::get($request->all(), 'order', ['id', 'desc']);
         $limit = (int) Arr::get($request->all(), 'limit', 10);
         $page = (int) Arr::get($request->all(), 'page', 1);
 
-        // try {
+        try {
             $data = $this->albumService->getPaginatedAlbums($filters, $order, $limit, $page);
             return $this->successPagination('Albums retrieved successfully!', $data);
-        // } catch (\Exception $e) {
-        //     return $this->error('Failed to retrieve albums.');
-        // }
+        } catch (\Exception $e) {
+            return $this->error('Failed to retrieve albums.');
+        }
     }
 
     /**
