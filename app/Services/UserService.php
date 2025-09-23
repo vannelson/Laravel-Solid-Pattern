@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Repositories\UserRepository;
 use App\Services\Contracts\UserServiceInterface;
 use Illuminate\Support\Facades\Hash;
-use App\Http\Resources\UserResource;
+use App\Http\Resources\User\UserResource;
 
 /**
  * Class UserService
@@ -24,6 +24,35 @@ class UserService implements UserServiceInterface
     public function __construct(UserRepository $userRepository)
     {
         $this->userRepository = $userRepository;
+    }
+
+    /**
+     * List users with pagination, filters, and sorting.
+     *
+     * @param array $filters
+     * @param array $order
+     * @param int $limit
+     * @param int $page
+     * @return array
+    */
+    public function getList(array $filters = [], array $order = [], int $limit = 10, int $page = 1): array 
+    {
+        return UserResource::collection($this->userRepository
+                    ->listing($filters, $order, $limit, $page))
+            ->response()
+            ->getData(true);
+    }
+
+    /**
+     * 
+     * @param int $id
+     * @return array
+     */
+    public function detail($id): array 
+    {
+        return (new UserResource(
+                    $this->userRepository->findById($id)))
+            ->response()->getData(true);
     }
 
     /**
