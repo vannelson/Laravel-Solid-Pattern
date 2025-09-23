@@ -15,7 +15,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'type',
+        'type', // e.g., 'borrower', 'tenant', 'admin'
         'role',
     ];
 
@@ -35,5 +35,37 @@ class User extends Authenticatable
     public function companies()
     {
         return $this->hasMany(Company::class);
+    }
+
+    /**
+     * Bookings made by this user (as borrower).
+     */
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class, 'borrower_id');
+    }
+
+    /**
+     * Bookings managed by this user (as tenant/staff).
+     */
+    public function managedBookings()
+    {
+        return $this->hasMany(Booking::class, 'tenant_id');
+    }
+
+    /**
+     * Scope: Only borrower users.
+     */
+    public function scopeBorrowers($query)
+    {
+        return $query->where('type', 'borrower');
+    }
+
+    /**
+     * Scope: Only tenant users.
+     */
+    public function scopeTenants($query)
+    {
+        return $query->where('type', 'tenant');
     }
 }

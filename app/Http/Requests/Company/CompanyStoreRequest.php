@@ -17,6 +17,7 @@ class CompanyStoreRequest extends FormRequest
             'name'     => 'required|string|max:255',
             'address'  => 'nullable|string|max:255',
             'industry' => 'nullable|string|max:255',
+            'user_id' => 'required|int'
         ];
     }
 }

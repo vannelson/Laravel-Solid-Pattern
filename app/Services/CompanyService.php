@@ -2,32 +2,32 @@
 
 namespace App\Services;
 
-use App\Repositories\Contracts\UserRepositoryInterface;
-use App\Services\Contracts\UserServiceInterface;
+use App\Repositories\Contracts\CompanyRepositoryInterface;
+use App\Services\Contracts\CompanyServiceInterface;
 use Illuminate\Support\Facades\Hash;
-use App\Http\Resources\User\UserResource;
+use App\Http\Resources\Company\CompanyResource;
 
 /**
  * Class UserService
  *
  * Handles business logic related to user management.
  */
-class UserService implements UserServiceInterface
+class CompanyService implements CompanyServiceInterface
 {
-    protected UserRepositoryInterface $userRepository;
+    protected CompanyRepositoryInterface $companyRepository;
 
     /**
      * UserService constructor.
      *
-     * @param UserRepositoryInterface  $userRepository 
+     * @param CompanyRepositoryInterface $userRepository
      */
-    public function __construct(UserRepositoryInterface $userRepository)
+    public function __construct(CompanyRepositoryInterface $companyRepository)
     {
-        $this->userRepository = $userRepository;
+        $this->companyRepository = $companyRepository;
     }
 
     /**
-     * List users with pagination, filters, and sorting.
+     * List companies  with pagination, filters, and sorting.
      *
      * @param array $filters
      * @param array $order
@@ -37,7 +37,7 @@ class UserService implements UserServiceInterface
     */
     public function getList(array $filters = [], array $order = [], int $limit = 10, int $page = 1): array 
     {
-        return UserResource::collection($this->userRepository
+        return CompanyResource::collection($this->companyRepository
                     ->listing($filters, $order, $limit, $page))
             ->response()
             ->getData(true);
@@ -50,25 +50,23 @@ class UserService implements UserServiceInterface
      */
     public function detail($id): array 
     {
-        return (new UserResource(
-                    $this->userRepository->findById($id)))
+        return (new CompanyResource(
+                    $this->companyRepository->findById($id)))
             ->response()->getData(true);
     }
 
     /**
-     * Register a new user.
+     * Register a new company.
      *
      * @param array $data
      * @return array
      */
     public function register(array $data): array
     {
-        $data['password'] = Hash::make($data['password']);
-        $user = $this->userRepository->create($data);
+        $company = $this->companyRepository->create($data);
 
-        return (new UserResource($user))
+        return (new CompanyResource($company))
                         ->response()->getData(true);
-
     }
 
     /**
@@ -80,10 +78,7 @@ class UserService implements UserServiceInterface
      */
     public function update(int $id, array $data): bool
     {
-        if (isset($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
-        }
-        return $this->userRepository->update($id, $data);
+        return $this->companyRepository->update($id, $data);
     }
 
     /**
@@ -94,6 +89,6 @@ class UserService implements UserServiceInterface
      */
     public function delete(int $id): bool
     {
-        return $this->userRepository->delete($id);
+        return $this->companyRepository->delete($id);
     }
 }

@@ -23,4 +23,12 @@ class Company extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Company Has many cars
+     */
+    public function cars()
+    {
+        return $this->hasMany(Car::class);
+    }
 }

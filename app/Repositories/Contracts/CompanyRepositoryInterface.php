@@ -4,7 +4,7 @@ namespace App\Repositories\Contracts;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 
-interface UserRepositoryInterface
+interface CompanyRepositoryInterface
 {
     /**
      * Get Users List 

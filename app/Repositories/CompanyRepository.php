@@ -2,21 +2,21 @@
 
 namespace App\Repositories;
 
-use App\Models\User;
-use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Models\Company;
+use App\Repositories\Contracts\CompanyRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 
-class UserRepository extends BaseRepository implements UserRepositoryInterface
+class CompanyRepository extends BaseRepository implements CompanyRepositoryInterface
 {
     /**
      * UserRepository constructor.
      *
      * @param User $user
      */
-    public function __construct(User $user)
+    public function __construct(Company $company)
     {
-        parent::__construct($user);
+        parent::__construct($company);
     }
 
     /**
@@ -31,14 +31,15 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     public function listing(array $filters = [], array $order = [], int $limit = 10, int $page = 1): LengthAwarePaginator
     {
          $query = $this->model->newQuery();
-
+        // eager load user
+        $query->with('user');
         // Apply optional filters
         if ($name = Arr::get($filters, 'name')) {
             $query->where('name', 'LIKE', "%$name%");
         }
 
-        if ($email = Arr::get($filters, 'email')) {
-            $query->where('email', 'LIKE', "%$email%");
+        if ($address = Arr::get($filters, 'address')) {
+            $query->where('address', 'LIKE', "%$address%");
         }
 
         // Apply ordering (default: id desc)
