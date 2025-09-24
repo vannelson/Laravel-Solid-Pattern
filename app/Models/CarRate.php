@@ -11,11 +11,11 @@ class CarRate extends Model
 
     protected $fillable = [
         'car_id',
+        'name',       // e.g., "Standard Rate", "Christmas Promo"
         'rate',
-        'rate_type',
+        'rate_type',  // daily, weekly, hourly
         'start_date',
-        'end_date',
-        'status', // active, inactive, expired, scheduled
+        'status',     // active, inactive, scheduled
     ];
 
     /**
@@ -27,10 +27,26 @@ class CarRate extends Model
     }
 
     /**
-     * Scope to only active rates.
+     * Scope: only active rates.
      */
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    /**
+     * Scope: only inactive rates.
+     */
+    public function scopeInactive($query)
+    {
+        return $query->where('status', 'inactive');
+    }
+
+    /**
+     * Scope: only scheduled rates (future use).
+     */
+    public function scopeScheduled($query)
+    {
+        return $query->where('status', 'scheduled');
     }
 }

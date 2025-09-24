@@ -34,6 +34,12 @@ use App\Services\CarService;
 use App\Repositories\Contracts\CarRepositoryInterface;
 use App\Repositories\CarRepository;
 
+
+use App\Services\Contracts\CarRateServiceInterface;
+use App\Services\CarRateService;
+use App\Repositories\Contracts\CarRateRepositoryInterface;
+use App\Repositories\CarRateRepository;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -43,6 +49,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // CarRates CarRatesServiceInterface and its implementation
+        $this->app->bind(CarRateServiceInterface::class, CarRateService::class);
+        $this->app->bind(CarRateRepositoryInterface::class, CarRateRepository::class);
+        
         // Car CarServiceInterface and its implementation
         $this->app->bind(CarServiceInterface::class, CarService::class);
         $this->app->bind(CarRepositoryInterface::class, CarRepository::class);
