@@ -17,6 +17,7 @@ class Booking extends Model
         'end_date',
         'expected_return_date',
         'actual_return_date',
+        'destination',     
         'rate',
         'rate_type',
         'base_amount',

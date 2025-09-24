@@ -8,6 +8,7 @@ require __DIR__ . '/modules/Auth.php';
 require __DIR__ . '/modules/Users.php';
 require __DIR__ . '/modules/Car.php';
 require __DIR__ . '/modules/CarRates.php';
+require __DIR__ . '/modules/Booking.php';
 
 require __DIR__ . '/modules/Albums.php';
 require __DIR__ . '/modules/Reaction.php';

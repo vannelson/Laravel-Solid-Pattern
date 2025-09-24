@@ -4,6 +4,7 @@ namespace App\Http\Resources\Car;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\Company\CompanyResource;
+use App\Http\Resources\CarRate\CarRateResource;
 
 class CarResource extends JsonResource
 {
@@ -45,6 +46,8 @@ class CarResource extends JsonResource
             'features'               => $this->features,
             'profileImage'           => $this->profileImage,
             'displayImages'          => $this->displayImages,
+            'rates'                  => CarRateResource::collection($this->whenLoaded('rates')),
+            'active_rate'            => new CarRateResource($this->whenLoaded('activeRate')),
         ];
     }
 }

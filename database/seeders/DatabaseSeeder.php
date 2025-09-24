@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             CompanySeeder::class,
             CarSeeder::class,
+            BookingSeeder::class,
         ]);
     }
 }

@@ -35,18 +35,20 @@ class CarController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = Arr::get($request->all(), 'filters', []);
-        $order   = Arr::get($request->all(), 'order', ['id', 'desc']);
-        $limit   = (int) Arr::get($request->all(), 'limit', 10);
-        $page    = (int) Arr::get($request->all(), 'page', 1);
+        $filters  = Arr::get($request->all(), 'filters', []);
+        $order    = Arr::get($request->all(), 'order', ['id', 'desc']);
+        $limit    = (int) Arr::get($request->all(), 'limit', 10);
+        $page     = (int) Arr::get($request->all(), 'page', 1);
+        $includes = Arr::get($request->all(), 'include', []); // 👈 array of relationships
 
         try {
-            $data = $this->carService->getList($filters, $order, $limit, $page);
+            $data = $this->carService->getList($filters, $order, $limit, $page, $includes);
             return $this->successPagination('Cars retrieved successfully!', $data);
         } catch (\Exception $e) {
             return $this->error('Failed to load cars.', 500);
         }
     }
+
 
     /**
      * Store a new car.

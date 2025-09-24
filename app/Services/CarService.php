@@ -21,17 +21,28 @@ class CarService implements CarServiceInterface
     }
 
     /**
-     * {@inheritdoc}
-     */
-    public function getList(array $filters = [], array $order = [], int $limit = 10, int $page = 1): array
+     * List cars with pagination, filters, and sorting.
+     *
+     * @param array $filters
+     * @param array $order
+     * @param int $limit
+     * @param int $page
+     * @param array $includes
+     * 
+     * @return array
+    */
+    public function getList(array $filters = [], array $order = [], int $limit = 10, int $page = 1, array $includes = []): array
     {
         return CarResource::collection(
-            $this->carRepository->listing($filters, $order, $limit, $page)
+            $this->carRepository->listing($filters, $order, $limit, $page, $includes)
         )->response()->getData(true);
     }
 
     /**
-     * {@inheritdoc}
+     * Get details of a car.
+     *
+     * @param int $id
+     * @return array
      */
     public function detail(int $id): array
     {
@@ -41,7 +52,10 @@ class CarService implements CarServiceInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Register a new car.
+     *
+     * @param array $data
+     * @return array
      */
     public function register(array $data): array
     {
@@ -50,7 +64,11 @@ class CarService implements CarServiceInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Update an existing car.
+     *
+     * @param int $id
+     * @param array $data
+     * @return bool
      */
     public function update(int $id, array $data): bool
     {
@@ -58,7 +76,10 @@ class CarService implements CarServiceInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Delete a car by ID.
+     *
+     * @param int $id
+     * @return bool
      */
     public function delete(int $id): bool
     {

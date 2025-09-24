@@ -31,6 +31,10 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     public function listing(array $filters = [], array $order = [], int $limit = 10, int $page = 1): LengthAwarePaginator
     {
          $query = $this->model->newQuery();
+        
+        if ($type = Arr::get($filters, 'type')) {
+            $query->where('type', $type);
+        }
 
         // Apply optional filters
         if ($name = Arr::get($filters, 'name')) {

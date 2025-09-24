@@ -26,28 +26,30 @@ class CarRepository extends BaseRepository implements CarRepositoryInterface
      * @param array $order
      * @param int $limit
      * @param int $page
+     * @param array $includes
      * @return LengthAwarePaginator
      */
-    public function listing(array $filters = [], array $order = [], int $limit = 10, int $page = 1): LengthAwarePaginator
+    public function listing(array $filters = [], array $order = [], int $limit = 10, int $page = 1, array $includes = []): LengthAwarePaginator
     {
-        $query = $this->model->newQuery()->with('company');
+        $query = $this->model->newQuery();
 
-        // Filter by make
+        // 👇 Load relationships if requested
+        if (!empty($includes)) {
+            $query->with($includes);
+        }
+
+        // Filters
         if ($make = Arr::get($filters, 'info_make')) {
             $query->where('info_make', 'LIKE', "%$make%");
         }
-
-        // Filter by model
         if ($model = Arr::get($filters, 'info_model')) {
             $query->where('info_model', 'LIKE', "%$model%");
         }
-
-        // Filter by year
         if ($year = Arr::get($filters, 'info_year')) {
             $query->where('info_year', $year);
         }
 
-        // Apply ordering (default: id desc)
+        // Ordering
         [$orderBy, $dir] = !empty($order) ? $order : ['id', 'desc'];
         $query->orderBy($orderBy, $dir);
 

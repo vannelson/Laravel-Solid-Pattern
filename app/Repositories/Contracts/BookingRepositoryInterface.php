@@ -4,10 +4,10 @@ namespace App\Repositories\Contracts;
 
 use Illuminate\Pagination\LengthAwarePaginator;
 
-interface CarRateRepositoryInterface
+interface BookingRepositoryInterface
 {
     /**
-     * List cars with pagination, filters, and sorting.
+     * List bookings with filters and pagination.
      *
      * @param array $filters
      * @param array $order
@@ -17,4 +17,15 @@ interface CarRateRepositoryInterface
      * @return LengthAwarePaginator
      */
     public function listing(array $filters = [], array $order = [], int $limit = 10, int $page = 1, array $includes = []): LengthAwarePaginator;
+
+    /**
+     * Check if a car has overlapping bookings.
+     *
+     * @param int $carId
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $excludeId
+     * @return bool
+     */
+    public function hasConflict(int $carId, string $startDate, string $endDate, int $excludeId = null): bool;
 }

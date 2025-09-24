@@ -2,23 +2,22 @@
 
 namespace App\Services\Contracts;
 
-interface CarServiceInterface
+interface BookingServiceInterface
 {
     /**
-     * List cars with pagination, filters, and sorting.
+     * List bookings with pagination, filters, and sorting.
      *
      * @param array $filters
      * @param array $order
      * @param int $limit
      * @param int $page
      * @param array $includes
-     * 
      * @return array
      */
     public function getList(array $filters = [], array $order = [], int $limit = 10, int $page = 1, array $includes = []): array;
 
     /**
-     * Get details of a car.
+     * Show booking detail.
      *
      * @param int $id
      * @return array
@@ -26,7 +25,7 @@ interface CarServiceInterface
     public function detail(int $id): array;
 
     /**
-     * Register a new car.
+     * Create a new booking.
      *
      * @param array $data
      * @return array
@@ -34,7 +33,7 @@ interface CarServiceInterface
     public function register(array $data): array;
 
     /**
-     * Update an existing car.
+     * Update an existing booking.
      *
      * @param int $id
      * @param array $data
@@ -43,7 +42,7 @@ interface CarServiceInterface
     public function update(int $id, array $data): bool;
 
     /**
-     * Delete a car by ID.
+     * Delete a booking by ID.
      *
      * @param int $id
      * @return bool

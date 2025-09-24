@@ -40,6 +40,12 @@ use App\Services\CarRateService;
 use App\Repositories\Contracts\CarRateRepositoryInterface;
 use App\Repositories\CarRateRepository;
 
+
+use App\Services\Contracts\BookingServiceInterface;
+use App\Services\BookingService;
+use App\Repositories\Contracts\BookingRepositoryInterface;
+use App\Repositories\BookingRepository;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -49,6 +55,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+
+        // Bookings BookingServiceInterface and its implementation
+        $this->app->bind(BookingServiceInterface::class, BookingService::class);
+        $this->app->bind(BookingRepositoryInterface::class, BookingRepository::class);
+
         // CarRates CarRatesServiceInterface and its implementation
         $this->app->bind(CarRateServiceInterface::class, CarRateService::class);
         $this->app->bind(CarRateRepositoryInterface::class, CarRateRepository::class);
