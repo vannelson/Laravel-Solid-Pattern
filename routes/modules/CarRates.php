@@ -3,4 +3,7 @@
 use App\Http\Controllers\CarRateController;
 use Illuminate\Support\Facades\Route;
 
-Route::apiResource('car-rates', CarRateController::class);
+// All car rate routes require authentication
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('car-rates', CarRateController::class);
+});

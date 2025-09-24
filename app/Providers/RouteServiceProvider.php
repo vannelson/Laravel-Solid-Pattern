@@ -24,8 +24,15 @@ class RouteServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Default API limiter applied to all API routes (60 req/min by user or IP)
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // Tighter limiter for auth-sensitive routes (e.g., login/register)
+        RateLimiter::for('auth', function (Request $request) {
+            $key = strtolower((string) $request->input('email')) ?: $request->ip();
+            return Limit::perMinute(10)->by($key);
         });
 
         $this->routes(function () {

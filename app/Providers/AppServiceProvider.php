@@ -70,7 +70,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Registering CompanyServiceInterface and its implementation
         $this->app->bind(CompanyServiceInterface::class, CompanyService::class);
-        $this->app->bind(CompanyRepositoryInterface::class, companyRepository::class);
+        // Bind the repository with correct class name casing
+        $this->app->bind(CompanyRepositoryInterface::class, CompanyRepository::class);
 
         // Registering UserServiceInterface and its implementation
         $this->app->bind(UserServiceInterface::class, UserService::class);
