@@ -40,8 +40,12 @@ class CarUpdateRequest extends FormRequest
             'spcs_fuelEfficiency'     => 'nullable|numeric|min:0',
 
             'features'                => 'nullable|array',
-            'profileImage'            => 'nullable|string|max:255',
+            // Allow URL strings, or files handled by controller
+            'profileImage'            => 'nullable',
             'displayImages'           => 'nullable|array',
+            'profileImageFile'        => 'nullable|mimes:jpeg,jpg,png,gif,webp,avif|max:5120',
+            'displayImagesFiles'      => 'nullable|array',
+            'displayImagesFiles.*'    => 'mimes:jpeg,jpg,png,gif,webp,avif|max:5120',
         ];
     }
 }

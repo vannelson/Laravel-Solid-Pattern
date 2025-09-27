@@ -105,6 +105,9 @@ Route::middleware('auth:sanctum')->group(function () {
 */
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('cars', CarController::class);
+    // Upload car images and return public URL
+    Route::post('cars/upload', [CarController::class, 'upload'])
+        ->name('cars.upload');
 });
 
 /*

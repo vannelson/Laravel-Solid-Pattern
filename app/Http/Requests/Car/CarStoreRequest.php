@@ -40,8 +40,12 @@ class CarStoreRequest extends FormRequest
             'spcs_fuelEfficiency'     => 'nullable|numeric|min:0',
 
             'features'                => 'nullable|array',
-            'profileImage'            => 'nullable|string|max:255',
+            // Accept URL string or let controller handle file variant
+            'profileImage'            => 'nullable',
             'displayImages'           => 'nullable|array',
+            'profileImageFile'     => 'nullable|image|mimes:jpeg,jpg,png,gif,webp,avif|max:5120',
+            'displayImagesFiles'      => 'nullable|array',
+            'displayImagesFiles.*' => 'image|mimes:jpeg,jpg,png,gif,webp,avif|max:5120',
         ];
     }
 }
