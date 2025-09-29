@@ -44,4 +44,26 @@ class CarRateRepository extends BaseRepository implements CarRateRepositoryInter
 
         return $query->paginate($limit, ['*'], 'page', $page);
     }
+
+    /**
+     * Update a car rate and enforce single active rate per car when activating.
+     *
+     * @param int $id
+     * @param array $data
+     * @return int
+     */
+    public function update(int $id, array $data): int
+    {
+        // If status is being set to active, deactivate other active rates for the same car
+        if (array_key_exists('status', $data) && $data['status'] === 'active') {
+            $current = $this->model->findOrFail($id);
+
+            $this->model->where('car_id', $current->car_id)
+                ->where('id', '!=', $id)
+                ->where('status', 'active')
+                ->update(['status' => 'inactive']);
+        }
+
+        return parent::update($id, $data);
+    }
 }

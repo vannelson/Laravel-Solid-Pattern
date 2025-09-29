@@ -13,8 +13,7 @@ interface CarRateRepositoryInterface
      * @param array $order
      * @param int $limit
      * @param int $page
-     * @param array $includes
      * @return LengthAwarePaginator
      */
-    public function listing(array $filters = [], array $order = [], int $limit = 10, int $page = 1, array $includes = []): LengthAwarePaginator;
+    public function listing(array $filters = [], array $order = [], int $limit = 10, int $page = 1): LengthAwarePaginator;
 }

@@ -49,4 +49,17 @@ class CarRate extends Model
     {
         return $query->where('status', 'scheduled');
     }
+
+    protected static function booted()
+    {
+        static::saved(function (CarRate $rate) {
+            if ($rate->status === 'active') {
+                // Ensure only one active rate per car by deactivating others
+                static::where('car_id', $rate->car_id)
+                    ->where('id', '!=', $rate->id)
+                    ->where('status', 'active')
+                    ->update(['status' => 'inactive']);
+            }
+        });
+    }
 }
