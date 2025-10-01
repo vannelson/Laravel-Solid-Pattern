@@ -33,20 +33,64 @@ class CarRepository extends BaseRepository implements CarRepositoryInterface
     {
         $query = $this->model->newQuery();
 
-        // 👇 Load relationships if requested
         if (!empty($includes)) {
             $query->with($includes);
         }
-
-        // Filters
+        // Primary filters (AND): make, availability, transmission, fuel type
         if ($make = Arr::get($filters, 'info_make')) {
             $query->where('info_make', 'LIKE', "%$make%");
         }
-        if ($model = Arr::get($filters, 'info_model')) {
-            $query->where('info_model', 'LIKE', "%$model%");
+        if ($availability = Arr::get($filters, 'info_availabilityStatus')) {
+            $query->where('info_availabilityStatus', $availability);
         }
-        if ($year = Arr::get($filters, 'info_year')) {
-            $query->where('info_year', $year);
+        if ($transmission = Arr::get($filters, 'spcs_transmission')) {
+            $query->where('spcs_transmission', $transmission);
+        }
+        if ($fuelType = Arr::get($filters, 'spcs_fuelType')) {
+            $query->where('spcs_fuelType', $fuelType);
+        }
+
+        // Build OR group from any other provided info_* or spcs_* filter keys
+        $primaryKeys = ['info_make', 'info_availabilityStatus', 'spcs_transmission', 'spcs_fuelType'];
+        $orFields = [];
+        foreach ((array) $filters as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            if ((strpos($key, 'info_') === 0 || strpos($key, 'spcs_') === 0) && !in_array($key, $primaryKeys, true)) {
+                $orFields[$key] = $value;
+            }
+        }
+
+        // Generic keyword search across info_* and spcs_*
+        $keyword = Arr::get($filters, 'search') ?: Arr::get($filters, 'q');
+
+        if (!empty($orFields) || $keyword) {
+            $query->where(function ($q) use ($orFields, $keyword) {
+                foreach ($orFields as $col => $val) {
+                    $q->orWhere($col, 'LIKE', "%{$val}%");
+                }
+                if ($keyword) {
+                    $kw = "%{$keyword}%";
+                    $q->orWhere('info_make', 'LIKE', $kw)
+                      ->orWhere('info_model', 'LIKE', $kw)
+                      ->orWhere('info_year', 'LIKE', $kw)
+                      ->orWhere('info_age', 'LIKE', $kw)
+                      ->orWhere('info_carType', 'LIKE', $kw)
+                      ->orWhere('info_plateNumber', 'LIKE', $kw)
+                      ->orWhere('info_vin', 'LIKE', $kw)
+                      ->orWhere('info_availabilityStatus', 'LIKE', $kw)
+                      ->orWhere('info_location', 'LIKE', $kw)
+                      ->orWhere('info_mileage', 'LIKE', $kw)
+                      ->orWhere('spcs_seats', 'LIKE', $kw)
+                      ->orWhere('spcs_largeBags', 'LIKE', $kw)
+                      ->orWhere('spcs_smallBags', 'LIKE', $kw)
+                      ->orWhere('spcs_engineSize', 'LIKE', $kw)
+                      ->orWhere('spcs_transmission', 'LIKE', $kw)
+                      ->orWhere('spcs_fuelType', 'LIKE', $kw)
+                      ->orWhere('spcs_fuelEfficiency', 'LIKE', $kw);
+                }
+            });
         }
 
         // Ordering
@@ -54,5 +98,18 @@ class CarRepository extends BaseRepository implements CarRepositoryInterface
         $query->orderBy($orderBy, $dir);
 
         return $query->paginate($limit, ['*'], 'page', $page);
+    }
+
+    /**
+     * Override update to leverage Eloquent casting/mutators/events.
+     * This ensures JSON columns like displayImages/features are saved correctly
+     * when arrays are provided, and that attribute casts are applied.
+     */
+    public function update(int $id, array $data): int
+    {
+        $model = $this->model->findOrFail($id);
+        $model->fill($data);
+        $saved = $model->save();
+        return $saved ? 1 : 0;
     }
 }

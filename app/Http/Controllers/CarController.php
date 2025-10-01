@@ -113,6 +113,7 @@ class CarController extends Controller
 
             // Collect file uploads; service will store them under cars/{id}/...
             $data['profileImageFile'] = $request->file('profileImageFile') ?: $request->file('profileImage');
+            
             $displayFiles = $request->file('displayImagesFiles') ?: $request->file('displayImages');
             if ($displayFiles) {
                 $data['displayImagesFiles'] = is_array($displayFiles) ? $displayFiles : [$displayFiles];
