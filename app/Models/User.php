@@ -12,7 +12,9 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        'name',
+        'first_name',
+        'middle_name',
+        'last_name',
         'email',
         'password',
         'type', // e.g., 'borrower', 'tenant', 'admin'
@@ -28,6 +30,21 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * Accessor for backward compatibility when accessing $user->name
+     * Concatenates first, middle and last names.
+     */
+    public function getNameAttribute(): string
+    {
+        $parts = array_filter([
+            $this->first_name,
+            $this->middle_name,
+            $this->last_name,
+        ], fn($v) => (string) $v !== '');
+
+        return trim(implode(' ', $parts));
+    }
 
     /**
      * A User has many companies.

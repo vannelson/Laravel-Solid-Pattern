@@ -37,8 +37,19 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
         }
 
         // Apply optional filters
+        if ($first = Arr::get($filters, 'first_name')) {
+            $query->where('first_name', 'LIKE', "%$first%");
+        }
+        if ($middle = Arr::get($filters, 'middle_name')) {
+            $query->where('middle_name', 'LIKE', "%$middle%");
+        }
+        if ($last = Arr::get($filters, 'last_name')) {
+            $query->where('last_name', 'LIKE', "%$last%");
+        }
+        // Full name search using CONCAT_WS for accurate spacing and NULL handling
         if ($name = Arr::get($filters, 'name')) {
-            $query->where('name', 'LIKE', "%$name%");
+            $kw = "%{$name}%";
+            $query->whereRaw("CONCAT_WS(' ', first_name, middle_name, last_name) LIKE ?", [$kw]);
         }
 
         if ($email = Arr::get($filters, 'email')) {
