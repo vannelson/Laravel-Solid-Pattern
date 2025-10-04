@@ -7,6 +7,9 @@ use App\Repositories\Contracts\BookingRepositoryInterface;
 use App\Services\Contracts\BookingServiceInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class BookingService implements BookingServiceInterface
@@ -43,9 +46,19 @@ class BookingService implements BookingServiceInterface
      */
     public function register(array $data): array
     {
+        if (empty($data['borrower_id'])) {
+            $borrowerId = Auth::id();
+            if ($borrowerId === null) {
+                throw ValidationException::withMessages([
+                    'borrower_id' => ['Borrower is required.'],
+                ]);
+            }
+            $data['borrower_id'] = $borrowerId;
+        }
+
         $this->ensureNoConflict($data['car_id'], $data['start_date'], $data['end_date']);
 
-        [$files, $retainedImages] = $this->extractIdentificationUploads($data);
+        [$files, $retainedImages, $dataUris] = $this->extractIdentificationUploads($data);
 
         if ($retainedImages !== null) {
             $data['identification_images'] = $retainedImages;
@@ -53,7 +66,7 @@ class BookingService implements BookingServiceInterface
 
         $booking = $this->bookingRepository->create($data);
 
-        $updates = $this->storeIdentificationUploads((int) $booking->id, $files, $retainedImages ?? []);
+        $updates = $this->storeIdentificationUploads((int) $booking->id, $files, $retainedImages ?? [], $dataUris);
         if (!empty($updates)) {
             $this->bookingRepository->update((int) $booking->id, $updates);
             foreach ($updates as $key => $value) {
@@ -79,11 +92,13 @@ class BookingService implements BookingServiceInterface
             $this->ensureNoConflict($carId, $start, $end, $id);
         }
 
-        [$files, $retainedImages, $hasImagesKey] = $this->extractIdentificationUploads($data, true);
+        [$files, $retainedImages, $dataUris, $hasImagesKey] = $this->extractIdentificationUploads($data, true);
 
-        $baseline = $hasImagesKey ? ($retainedImages ?? []) : (is_array($booking->identification_images) ? $booking->identification_images : []);
+        $baseline = $hasImagesKey
+            ? ($retainedImages ?? [])
+            : (is_array($booking->identification_images) ? $booking->identification_images : []);
 
-        $uploadUpdates = $this->storeIdentificationUploads($id, $files, $baseline);
+        $uploadUpdates = $this->storeIdentificationUploads($id, $files, $baseline, $dataUris);
         if (!empty($uploadUpdates)) {
             $data['identification_images'] = $uploadUpdates['identification_images'];
         } elseif ($hasImagesKey) {
@@ -117,18 +132,17 @@ class BookingService implements BookingServiceInterface
 
     /**
      * Extract identification uploads from the payload and normalise retained URLs.
-     *
-     * @return array
      */
     protected function extractIdentificationUploads(array &$data, bool $includeFlag = false): array
     {
         $files = [];
+        $retained = null;
+        $dataUris = [];
 
         $directFiles = Arr::pull($data, 'identificationImagesFiles');
         $files = $this->mergeUploadedFiles($files, $directFiles);
 
         $hasImagesKey = array_key_exists('identification_images', $data);
-        $retained = null;
 
         if ($hasImagesKey) {
             $retained = [];
@@ -136,14 +150,22 @@ class BookingService implements BookingServiceInterface
 
             if ($raw instanceof UploadedFile) {
                 $files[] = $raw;
-            } elseif (is_string($raw) && $raw !== '') {
-                $retained[] = $raw;
+            } elseif (is_string($raw)) {
+                if ($this->isDataUri($raw)) {
+                    $dataUris[] = $raw;
+                } elseif ($raw !== '') {
+                    $retained[] = $raw;
+                }
             } elseif (is_array($raw)) {
                 foreach ($raw as $value) {
                     if ($value instanceof UploadedFile) {
                         $files[] = $value;
-                    } elseif (is_string($value) && $value !== '') {
-                        $retained[] = $value;
+                    } elseif (is_string($value)) {
+                        if ($this->isDataUri($value)) {
+                            $dataUris[] = $value;
+                        } elseif ($value !== '') {
+                            $retained[] = $value;
+                        }
                     }
                 }
             }
@@ -152,10 +174,10 @@ class BookingService implements BookingServiceInterface
         }
 
         if ($includeFlag) {
-            return [$files, $retained, $hasImagesKey];
+            return [$files, $retained, $dataUris, $hasImagesKey];
         }
 
-        return [$files, $retained];
+        return [$files, $retained, $dataUris];
     }
 
     /**
@@ -176,16 +198,46 @@ class BookingService implements BookingServiceInterface
         return $files;
     }
 
+    protected function isDataUri(string $value): bool
+    {
+        return preg_match('/^data:image\/[^;]+;base64,/', $value) === 1;
+    }
+
+    protected function storeDataUri(int $bookingId, string $dataUri): ?string
+    {
+        if (!preg_match('/^data:image\/(?P<mime>[^;]+);base64,(?P<data>.+)$/', $dataUri, $matches)) {
+            return null;
+        }
+
+        $binary = base64_decode($matches['data'], true);
+        if ($binary === false) {
+            return null;
+        }
+
+        $extension = strtolower($matches['mime']);
+        $extension = $extension === 'jpeg' ? 'jpg' : ($extension === 'svg+xml' ? 'svg' : $extension);
+        $allowed = ['jpg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+        if (!in_array($extension, $allowed, true)) {
+            return null;
+        }
+
+        $filename = Str::uuid()->toString() . '.' . $extension;
+        $path = "bookings/{$bookingId}/identifications/{$filename}";
+
+        if (!Storage::disk('public')->put($path, $binary)) {
+            return null;
+        }
+
+        return asset('storage/' . $path);
+    }
+
     /**
      * Store uploaded identification images under bookings/{id}/identifications and return URL updates.
      */
-    protected function storeIdentificationUploads(int $bookingId, array $files, array $existing = []): array
+    protected function storeIdentificationUploads(int $bookingId, array $files, array $existing = [], array $dataUris = []): array
     {
-        if (empty($files)) {
-            return [];
-        }
-
         $stored = [];
+
         foreach ($files as $file) {
             if (!$file instanceof UploadedFile) {
                 continue;
@@ -193,6 +245,13 @@ class BookingService implements BookingServiceInterface
 
             $path = $file->store("bookings/{$bookingId}/identifications", 'public');
             $stored[] = asset('storage/' . $path);
+        }
+
+        foreach ($dataUris as $dataUri) {
+            $url = $this->storeDataUri($bookingId, $dataUri);
+            if ($url !== null) {
+                $stored[] = $url;
+            }
         }
 
         if (empty($stored)) {

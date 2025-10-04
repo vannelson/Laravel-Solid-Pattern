@@ -15,7 +15,7 @@ class BookingStoreRequest extends FormRequest
     {
         return [
             'car_id'               => 'required|exists:cars,id',
-            'borrower_id'          => 'exists:users,id',
+            'borrower_id'          => 'nullable|exists:users,id',
             'tenant_id'            => 'required|exists:users,id',
             'start_date'           => 'required|date',
             'end_date'             => 'required|date|after:start_date',
@@ -38,3 +38,4 @@ class BookingStoreRequest extends FormRequest
         ];
     }
 }
+
