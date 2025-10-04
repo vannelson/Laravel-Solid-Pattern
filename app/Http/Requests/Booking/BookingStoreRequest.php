@@ -15,7 +15,7 @@ class BookingStoreRequest extends FormRequest
     {
         return [
             'car_id'               => 'required|exists:cars,id',
-            'borrower_id'          => 'required|exists:users,id',
+            'borrower_id'          => 'exists:users,id',
             'tenant_id'            => 'required|exists:users,id',
             'start_date'           => 'required|date',
             'end_date'             => 'required|date|after:start_date',
@@ -33,12 +33,6 @@ class BookingStoreRequest extends FormRequest
             'identification_type'  => 'required|string|max:50',
             'identification'       => 'required|string|max:255',
             'identification_number' => 'required|string|max:100',
-            'renter_first_name'      => 'required|string|max:255',
-            'renter_middle_name'     => 'required|string|max:255',
-            'renter_last_name'       => 'required|string|max:255',
-            'renter_address'         => 'required|string|max:255',
-            'renter_phone_number'    => 'required|string|max:50',
-            'renter_email'           => 'required|string|email|max:255',
             'identification_images' => 'nullable|array',
             'identification_images.*' => 'nullable|string',
         ];
