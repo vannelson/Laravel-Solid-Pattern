@@ -27,6 +27,17 @@ class BookingUpdateRequest extends FormRequest
             'total_amount'         => 'sometimes|numeric|min:0',
             'payment_status'       => 'sometimes|in:Pending,Paid,Cancelled',
             'status'               => 'sometimes|in:Reserved,Ongoing,Completed,Cancelled',
+            'identification_type'  => 'sometimes|string|max:50',
+            'identification'       => 'sometimes|string|max:255',
+            'identification_number' => 'sometimes|string|max:100',
+            'renter_first_name'      => 'sometimes|required|string|max:255',
+            'renter_middle_name'     => 'sometimes|required|string|max:255',
+            'renter_last_name'       => 'sometimes|required|string|max:255',
+            'renter_address'         => 'sometimes|required|string|max:255',
+            'renter_phone_number'    => 'sometimes|required|string|max:50',
+            'renter_email'           => 'sometimes|required|string|email|max:255',
+            'identification_images' => 'sometimes|array',
+            'identification_images.*' => 'nullable|string',
         ];
     }
 }

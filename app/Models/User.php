@@ -19,6 +19,8 @@ class User extends Authenticatable
         'password',
         'type', // e.g., 'borrower', 'tenant', 'admin'
         'role',
+        'address',
+        'phone_number',
     ];
 
     protected $hidden = [

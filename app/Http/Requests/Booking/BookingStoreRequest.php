@@ -30,6 +30,17 @@ class BookingStoreRequest extends FormRequest
             'total_amount'         => 'required|numeric|min:0',
             'payment_status'       => 'required|in:Pending,Paid,Cancelled',
             'status'               => 'required|in:Reserved,Ongoing,Completed,Cancelled',
+            'identification_type'  => 'required|string|max:50',
+            'identification'       => 'required|string|max:255',
+            'identification_number' => 'required|string|max:100',
+            'renter_first_name'      => 'required|string|max:255',
+            'renter_middle_name'     => 'required|string|max:255',
+            'renter_last_name'       => 'required|string|max:255',
+            'renter_address'         => 'required|string|max:255',
+            'renter_phone_number'    => 'required|string|max:50',
+            'renter_email'           => 'required|string|email|max:255',
+            'identification_images' => 'nullable|array',
+            'identification_images.*' => 'nullable|string',
         ];
     }
 }

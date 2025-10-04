@@ -17,8 +17,10 @@ class UserUpdateRequest extends FormRequest
             'last_name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $this->route('id'),
             'password' => 'sometimes|required|string|min:6|confirmed',
-            'type' => 'sometimes|required|string|in:user,admin',
+            'type' => 'sometimes|required|string|in:user,admin,tenant',
             'role' => 'sometimes|required|string|in:member,editor,admin',
+            'address' => 'sometimes|required|string|max:255',
+            'phone_number' => 'sometimes|required|string|max:50',
         ];
     }
 
@@ -35,3 +37,4 @@ class UserUpdateRequest extends FormRequest
         ], 422));
     }
 }
+

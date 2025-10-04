@@ -8,6 +8,7 @@ use App\Services\Contracts\BookingServiceInterface;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 
@@ -24,9 +25,6 @@ class BookingController extends Controller
 
     /**
      * Display a listing of bookings with filters and pagination.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
@@ -46,14 +44,13 @@ class BookingController extends Controller
 
     /**
      * Store a newly created booking.
-     *
-     * @param BookingStoreRequest $request
-     * @return JsonResponse
      */
     public function store(BookingStoreRequest $request): JsonResponse
     {
         try {
-            $booking = $this->bookingService->register($request->validated());
+            $data = $this->appendIdentificationUploads($request->validated(), $request);
+
+            $booking = $this->bookingService->register($data);
             return $this->success('Booking created successfully!', $booking);
         } catch (ValidationException $e) {
             return $this->validationError($e);
@@ -64,13 +61,10 @@ class BookingController extends Controller
 
     /**
      * Display the specified booking.
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function show(int $id): JsonResponse
     {
-         try {
+        try {
             $booking = $this->bookingService->detail($id);
             return $this->success('Booking retrieved successfully!', $booking);
         } catch (\Exception $e) {
@@ -80,15 +74,13 @@ class BookingController extends Controller
 
     /**
      * Update the specified booking.
-     *
-     * @param BookingUpdateRequest $request
-     * @param int $id
-     * @return JsonResponse
      */
     public function update(BookingUpdateRequest $request, int $id): JsonResponse
     {
         try {
-            $this->bookingService->update($id, $request->validated());
+            $data = $this->appendIdentificationUploads($request->validated(), $request);
+
+            $this->bookingService->update($id, $data);
             return $this->success('Booking updated successfully!');
         } catch (ValidationException $e) {
             return $this->validationError($e);
@@ -99,9 +91,6 @@ class BookingController extends Controller
 
     /**
      * Remove the specified booking.
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function destroy(int $id): JsonResponse
     {
@@ -111,5 +100,26 @@ class BookingController extends Controller
         } catch (\Exception $e) {
             return $this->error('Failed to delete booking.', 500);
         }
+    }
+
+    /**
+     * Extract identification upload files from the request while keeping the payload clean.
+     */
+    protected function appendIdentificationUploads(array $data, Request $request): array
+    {
+        $files = $request->file('identificationImagesFiles') ?: $request->file('identification_images');
+
+        if ($files instanceof UploadedFile) {
+            $files = [$files];
+        }
+
+        if (is_array($files)) {
+            $uploads = array_values(array_filter($files, static fn ($file) => $file instanceof UploadedFile));
+            if (!empty($uploads)) {
+                $data['identificationImagesFiles'] = $uploads;
+            }
+        }
+
+        return $data;
     }
 }

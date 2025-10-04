@@ -17,7 +17,7 @@ class Booking extends Model
         'end_date',
         'expected_return_date',
         'actual_return_date',
-        'destination',     
+        'destination',
         'rate',
         'rate_type',
         'base_amount',
@@ -26,6 +26,20 @@ class Booking extends Model
         'total_amount',
         'payment_status',
         'status',
+        'identification_type',
+        'identification',
+        'identification_number',
+        'identification_images',
+        'renter_first_name',
+        'renter_middle_name',
+        'renter_last_name',
+        'renter_address',
+        'renter_phone_number',
+        'renter_email',
+    ];
+
+    protected $casts = [
+        'identification_images' => 'array',
     ];
 
     /**
