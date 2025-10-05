@@ -6,6 +6,8 @@ use App\Models\Booking;
 use App\Repositories\Contracts\BookingRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class BookingRepository extends BaseRepository implements BookingRepositoryInterface
 {
@@ -53,6 +55,14 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
         if (Arr::has($filters, 'start_date') && Arr::has($filters, 'end_date')) {
             $query->whereBetween('start_date', [$filters['start_date'], $filters['end_date']]);
         }
+        if ($monthFilter = Arr::get($filters, 'month')) {
+            $reference = $this->resolveMonthFilter($monthFilter, Arr::get($filters, 'year'));
+
+            if ($reference !== null) {
+                $query->whereYear('start_date', $reference->year)
+                    ->whereMonth('start_date', $reference->month);
+            }
+        }
 
         [$orderBy, $dir] = !empty($order) ? $order : ['id', 'desc'];
         $query->orderBy($orderBy, $dir);
@@ -84,5 +94,33 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
         }
 
         return $query->exists();
+    }
+
+    /**
+     * Resolve a month filter value into a Carbon instance (first day of the month).
+     */
+    protected function resolveMonthFilter($monthFilter, $yearHint = null): ?Carbon
+    {
+        try {
+            if (is_numeric($monthFilter) && $yearHint !== null) {
+                return Carbon::createFromDate((int) $yearHint, (int) $monthFilter, 1);
+            }
+
+            if (is_string($monthFilter) && Str::contains($monthFilter, '-')) {
+                return Carbon::parse($monthFilter);
+            }
+
+            if ($yearHint !== null) {
+                return Carbon::createFromDate((int) $yearHint, (int) $monthFilter, 1);
+            }
+
+            if (is_numeric($monthFilter)) {
+                return Carbon::createFromDate((int) Carbon::now()->year, (int) $monthFilter, 1);
+            }
+
+            return Carbon::parse($monthFilter);
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 }

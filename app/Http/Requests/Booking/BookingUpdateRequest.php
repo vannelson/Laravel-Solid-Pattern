@@ -36,6 +36,8 @@ class BookingUpdateRequest extends FormRequest
             'renter_address'         => 'sometimes|required|string|max:255',
             'renter_phone_number'    => 'sometimes|required|string|max:50',
             'renter_email'           => 'sometimes|required|string|email|max:255',
+            'identificationImagesFiles' => 'sometimes|array',
+            'identificationImagesFiles.*' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp,avif|max:5120',
             'identification_images' => 'sometimes|array',
             'identification_images.*' => 'nullable|string',
         ];
