@@ -55,12 +55,33 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
         if (Arr::has($filters, 'start_date') && Arr::has($filters, 'end_date')) {
             $query->whereBetween('start_date', [$filters['start_date'], $filters['end_date']]);
         }
+
         if ($monthFilter = Arr::get($filters, 'month')) {
             $reference = $this->resolveMonthFilter($monthFilter, Arr::get($filters, 'year'));
 
             if ($reference !== null) {
-                $query->whereYear('start_date', $reference->year)
-                    ->whereMonth('start_date', $reference->month);
+                $startOfMonth = $reference->copy()->startOfMonth()->startOfDay();
+                $endOfMonth = $reference->copy()->endOfMonth()->endOfDay();
+
+                $query->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                    $query->where('start_date', '<=', $endOfMonth)
+                        ->whereRaw('COALESCE(end_date, expected_return_date, start_date) >= ?', [$startOfMonth]);
+                });
+            }
+        }
+
+        if ($weekFilter = Arr::get($filters, 'week')) {
+            $range = $this->resolveWeekRange($weekFilter, Arr::get($filters, 'year'));
+
+            if ($range !== null) {
+                [$startOfWeek, $endOfWeek] = $range;
+                $startOfWeek = $startOfWeek->copy()->startOfDay();
+                $endOfWeek = $endOfWeek->copy()->endOfDay();
+
+                $query->where(function ($query) use ($startOfWeek, $endOfWeek) {
+                    $query->where('start_date', '<=', $endOfWeek)
+                        ->whereRaw('COALESCE(end_date, expected_return_date, start_date) >= ?', [$startOfWeek]);
+                });
             }
         }
 
@@ -119,7 +140,34 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             }
 
             return Carbon::parse($monthFilter);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolve a week filter into a [start, end] Carbon range.
+     */
+    protected function resolveWeekRange($weekFilter, $yearHint = null): ?array
+    {
+        try {
+            if (is_string($weekFilter) && preg_match('/^\d{4}-W\d{1,2}$/i', $weekFilter)) {
+                [$year, $week] = sscanf(strtoupper($weekFilter), '%d-W%d');
+                $reference = Carbon::now()->setISODate((int) $year, (int) $week);
+            } elseif (is_string($weekFilter) && Str::contains($weekFilter, '-')) {
+                $reference = Carbon::parse($weekFilter);
+            } elseif (is_numeric($weekFilter)) {
+                $year = $yearHint !== null ? (int) $yearHint : (int) Carbon::now()->year;
+                $reference = Carbon::now()->setISODate($year, (int) $weekFilter);
+            } else {
+                return null;
+            }
+
+            $start = $reference->copy()->startOfWeek();
+            $end = $reference->copy()->endOfWeek();
+
+            return [$start, $end];
+        } catch (\Throwable $e) {
             return null;
         }
     }
