@@ -6,6 +6,7 @@ use App\Models\Car;
 use App\Repositories\Contracts\CarRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Carbon\Carbon;
 
 class CarRepository extends BaseRepository implements CarRepositoryInterface
 {
@@ -91,6 +92,42 @@ class CarRepository extends BaseRepository implements CarRepositoryInterface
                       ->orWhere('spcs_fuelEfficiency', 'LIKE', $kw);
                 }
             });
+        }
+
+        $statusFilter = strtolower((string) Arr::get($filters, 'status', ''));
+        $statusFilter = in_array($statusFilter, ['available', 'unavailable'], true) ? $statusFilter : '';
+
+        if (Arr::has($filters, 'start_date') && Arr::has($filters, 'end_date')) {
+            try {
+                $startDate = Carbon::parse($filters['start_date'])->startOfDay();
+                $endDate = Carbon::parse($filters['end_date'])->endOfDay();
+
+                if ($endDate->greaterThanOrEqualTo($startDate)) {
+                    $start = $startDate->toDateTimeString();
+                    $end = $endDate->toDateTimeString();
+
+                    $conflictConstraint = function ($bookingQuery) use ($start, $end) {
+                        $bookingQuery
+                            ->where(function ($statusScope) {
+                                $statusScope
+                                    ->whereNull('status')
+                                    ->orWhereRaw('LOWER(TRIM(status)) NOT IN (?, ?)', ['cancelled', 'completed']);
+                            })
+                            ->where(function ($conflict) use ($start, $end) {
+                                $conflict
+                                    ->where('start_date', '<=', $end)
+                                    ->whereRaw('COALESCE(end_date, expected_return_date, start_date) >= ?', [$start]);
+                            });
+                    };
+                    if ($statusFilter === 'unavailable') {
+                        $query->whereHas('bookings', $conflictConstraint);
+                    } else {
+                        $query->whereDoesntHave('bookings', $conflictConstraint);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore invalid date filters
+            }
         }
 
         // Ordering
