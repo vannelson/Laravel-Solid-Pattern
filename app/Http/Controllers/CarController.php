@@ -89,10 +89,11 @@ class CarController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         try {
-            $car = $this->carService->detail($id);
+            $includes = Arr::get($request->all(), 'include', []);
+            $car = $this->carService->detail($id, $includes);
             return $this->success('Car retrieved successfully!', $car);
         } catch (\Exception $e) {
             return $this->error('Failed to retrieve car.', 500);

@@ -12,7 +12,7 @@ interface CarServiceInterface
      * @param int $limit
      * @param int $page
      * @param array $includes
-     * 
+     *
      * @return array
      */
     public function getList(array $filters = [], array $order = [], int $limit = 10, int $page = 1, array $includes = []): array;
@@ -21,9 +21,10 @@ interface CarServiceInterface
      * Get details of a car.
      *
      * @param int $id
+     * @param array $includes
      * @return array
      */
-    public function detail(int $id): array;
+    public function detail(int $id, array $includes = []): array;
 
     /**
      * Register a new car.

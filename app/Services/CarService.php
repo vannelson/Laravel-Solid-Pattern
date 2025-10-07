@@ -31,11 +31,13 @@ class CarService implements CarServiceInterface
      * @param int $limit
      * @param int $page
      * @param array $includes
-     * 
+     *
      * @return array
-    */
+     */
     public function getList(array $filters = [], array $order = [], int $limit = 10, int $page = 1, array $includes = []): array
     {
+        $includes = Arr::wrap($includes);
+
         return CarResource::collection(
             $this->carRepository->listing($filters, $order, $limit, $page, $includes)
         )->response()->getData(true);
@@ -45,13 +47,35 @@ class CarService implements CarServiceInterface
      * Get details of a car.
      *
      * @param int $id
+     * @param array $includes
      * @return array
      */
-    public function detail(int $id): array
+    public function detail(int $id, array $includes = []): array
     {
-        return (new CarResource(
-            $this->carRepository->findById($id)
-        ))->response()->getData(true);
+        $requestedIncludes = Arr::wrap($includes);
+        $relationshipIncludes = [];
+        $includeNextWindow = false;
+
+        foreach ($requestedIncludes as $includeItem) {
+            if ($includeItem === 'next_available_window') {
+                $includeNextWindow = true;
+                continue;
+            }
+
+            $relationshipIncludes[] = $includeItem;
+        }
+
+        $car = $this->carRepository->findById($id);
+
+        if (!empty($relationshipIncludes)) {
+            $car->load($relationshipIncludes);
+        }
+
+        if ($includeNextWindow) {
+            $this->carRepository->enrichWithNextAvailableWindow(collect([$car]));
+        }
+
+        return (new CarResource($car))->response()->getData(true);
     }
 
     /**
@@ -116,7 +140,7 @@ class CarService implements CarServiceInterface
 
     /**
      * Pull UploadedFile instances out of the input data.
-     * 
+     *
      * @param array $data
      * @return array
      */

@@ -6,6 +6,7 @@ use App\Models\Car;
 use App\Repositories\Contracts\CarRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Carbon\Carbon;
 
 class CarRepository extends BaseRepository implements CarRepositoryInterface
@@ -34,9 +35,23 @@ class CarRepository extends BaseRepository implements CarRepositoryInterface
     {
         $query = $this->model->newQuery();
 
-        if (!empty($includes)) {
-            $query->with($includes);
+        $requestedIncludes = Arr::wrap($includes);
+        $relationshipIncludes = [];
+        $includeNextWindow = false;
+
+        foreach ($requestedIncludes as $includeItem) {
+            if ($includeItem === 'next_available_window') {
+                $includeNextWindow = true;
+                continue;
+            }
+
+            $relationshipIncludes[] = $includeItem;
         }
+
+        if (!empty($relationshipIncludes)) {
+            $query->with($relationshipIncludes);
+        }
+
         // Primary filters (AND): make, availability, transmission, fuel type
         if ($make = Arr::get($filters, 'info_make')) {
             $query->where('info_make', 'LIKE', "%$make%");
@@ -134,7 +149,112 @@ class CarRepository extends BaseRepository implements CarRepositoryInterface
         [$orderBy, $dir] = !empty($order) ? $order : ['id', 'desc'];
         $query->orderBy($orderBy, $dir);
 
-        return $query->paginate($limit, ['*'], 'page', $page);
+        $paginator = $query->paginate($limit, ['*'], 'page', $page);
+
+        if ($includeNextWindow) {
+            $this->enrichWithNextAvailableWindow($paginator->getCollection());
+        }
+
+        return $paginator;
+    }
+
+    public function enrichWithNextAvailableWindow(Collection $cars): void
+    {
+        if ($cars->isEmpty()) {
+            return;
+        }
+
+        $cars->loadMissing(['bookings' => function ($query) {
+            $query->select('id', 'car_id', 'start_date', 'end_date', 'expected_return_date', 'actual_return_date', 'status')
+                ->orderBy('start_date');
+        }]);
+
+        foreach ($cars as $car) {
+            $car->setAttribute('next_available_window', $this->resolveNextAvailableWindow($car));
+        }
+    }
+
+    protected function resolveNextAvailableWindow(Car $car): ?array
+    {
+        $today = Carbon::today();
+
+        $intervals = $car->bookings
+            ->filter(function ($booking) {
+                $status = strtolower(trim((string) $booking->status));
+                return $status !== 'cancelled';
+            })
+            ->map(function ($booking) {
+                $start = $booking->start_date ? Carbon::parse($booking->start_date)->startOfDay() : null;
+                $endReference = $booking->actual_return_date
+                    ?? $booking->end_date
+                    ?? $booking->expected_return_date
+                    ?? $booking->start_date;
+
+                if ($start === null || $endReference === null) {
+                    return null;
+                }
+
+                $end = Carbon::parse($endReference)->endOfDay();
+
+                return compact('start', 'end');
+            })
+            ->filter()
+            ->sortBy('start')
+            ->values();
+
+        $pointer = $today->copy();
+        $windowStart = null;
+        $windowEnd = null;
+
+        foreach ($intervals as $interval) {
+            $start = $interval['start'];
+            $end = $interval['end'];
+
+            if ($end->lt($pointer)) {
+                continue;
+            }
+
+            if ($start->gt($pointer)) {
+                $windowStart = $pointer->copy();
+                $windowEnd = $start->copy()->subDay()->endOfDay();
+
+                if ($windowEnd->lt($windowStart)) {
+                    $windowEnd = $windowStart->copy();
+                }
+
+                break;
+            }
+
+            $pointer = $end->copy()->addDay()->startOfDay();
+        }
+
+        if ($windowStart === null) {
+            $windowStart = $pointer->copy();
+            $windowEnd = null;
+        }
+
+        return [
+            'start_date' => $windowStart->toDateString(),
+            'end_date' => $windowEnd ? $windowEnd->toDateString() : null,
+            'label' => $this->formatWindowLabel($windowStart, $windowEnd),
+        ];
+    }
+
+    protected function formatWindowLabel(Carbon $start, ?Carbon $end): string
+    {
+        if ($end === null) {
+            return $start->format('M j, Y') . ' onward';
+        }
+
+        if ($start->isSameMonth($end) && $start->isSameYear($end)) {
+            return $start->format('M j') . ' - ' . $end->format('j, Y');
+        }
+
+        if ($start->isSameYear($end)) {
+            return $start->format('M j') . ' - ' . $end->format('M j, Y');
+        }
+
+        return $start->format('M j, Y') . ' - ' . $end->format('M j, Y');
     }
 
     /**

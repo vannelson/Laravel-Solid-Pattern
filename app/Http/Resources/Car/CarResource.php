@@ -46,6 +46,7 @@ class CarResource extends JsonResource
             'features'               => $this->features,
             'profileImage'           => $this->profileImage,
             'displayImages'          => $this->displayImages,
+            'next_available_window'  => $this->when(isset($this->next_available_window), $this->next_available_window),
             'rates'                  => CarRateResource::collection($this->whenLoaded('rates')),
             'active_rate'            => new CarRateResource($this->whenLoaded('activeRate')),
         ];
