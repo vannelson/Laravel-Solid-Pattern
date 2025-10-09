@@ -78,6 +78,7 @@ class BookingController extends Controller
     public function update(BookingUpdateRequest $request, int $id): JsonResponse
     {
         try {
+             sleep(5);
             $data = $this->appendIdentificationUploads($request->validated(), $request);
 
             $this->bookingService->update($id, $data);

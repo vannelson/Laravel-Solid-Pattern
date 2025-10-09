@@ -55,6 +55,7 @@ class BookingSeeder extends Seeder
                 'total_amount'        => $total,
                 'payment_status'      => fake()->randomElement(['Pending', 'Paid', 'Cancelled']),
                 'status'              => fake()->randomElement(['Reserved', 'Ongoing', 'Completed', 'Cancelled']),
+                'is_lock'            => false,
                 'created_at'          => now(),
                 'updated_at'          => now(),
             ];

@@ -56,6 +56,10 @@ class BookingService implements BookingServiceInterface
             $data['borrower_id'] = $borrowerId;
         }
 
+        if (array_key_exists('is_lock', $data)) {
+            $data['is_lock'] = (bool) $data['is_lock'];
+        }
+
         $this->ensureNoConflict($data['car_id'], $data['start_date'], $data['end_date']);
 
         [$files, $retainedImages, $dataUris] = $this->extractIdentificationUploads($data);
@@ -83,6 +87,12 @@ class BookingService implements BookingServiceInterface
     public function update(int $id, array $data): bool
     {
         $booking = $this->bookingRepository->findById($id);
+        if ((bool) $booking->is_lock) {
+            throw ValidationException::withMessages(['booking' => ['This booking is locked and cannot be updated.']]);
+        }
+        if (array_key_exists('is_lock', $data)) {
+            $data['is_lock'] = (bool) $data['is_lock'];
+        }
 
         $carId = Arr::get($data, 'car_id', $booking->car_id);
         $start = Arr::get($data, 'start_date', $booking->start_date);

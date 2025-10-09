@@ -40,6 +40,7 @@ class BookingUpdateRequest extends FormRequest
             'identificationImagesFiles.*' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp,avif|max:5120',
             'identification_images' => 'sometimes|array',
             'identification_images.*' => 'nullable|string',
+            'is_lock'             => 'sometimes|boolean',
         ];
     }
 }

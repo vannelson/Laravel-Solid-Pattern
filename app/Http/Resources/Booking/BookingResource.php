@@ -38,6 +38,7 @@ class BookingResource extends JsonResource
             'renter_phone_number'    => $this->renter_phone_number,
             'renter_email'           => $this->renter_email,
             'identification_images' => $this->identification_images,
+            'is_lock'              => (bool) $this->is_lock,
         ];
     }
 }

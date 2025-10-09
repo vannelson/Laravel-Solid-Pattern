@@ -36,10 +36,12 @@ class Booking extends Model
         'renter_address',
         'renter_phone_number',
         'renter_email',
+        'is_lock',
     ];
 
     protected $casts = [
         'identification_images' => 'array',
+        'is_lock' => 'boolean',
     ];
 
     /**
