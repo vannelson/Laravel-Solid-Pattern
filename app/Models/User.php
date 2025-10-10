@@ -57,6 +57,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Default (active) company for this user.
+     */
+    public function activeCompany()
+    {
+        return $this->hasOne(Company::class)->where('is_default', true);
+    }
+
+    /**
      * Bookings made by this user (as borrower).
      */
     public function bookings()

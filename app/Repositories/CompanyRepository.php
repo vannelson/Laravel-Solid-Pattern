@@ -49,4 +49,18 @@ class CompanyRepository extends BaseRepository implements CompanyRepositoryInter
         // Return paginator instance
         return $query->paginate($limit, ['*'], 'page', $page);
     }
+
+    /**
+     * Ensure only one default company per user.
+     */
+    public function clearDefaultForUser(int $userId, ?int $exceptId = null): void
+    {
+        $query = $this->model->newQuery()->where('user_id', $userId);
+
+        if ($exceptId !== null) {
+            $query->where('id', '!=', $exceptId);
+        }
+
+        $query->update(['is_default' => false]);
+    }
 }

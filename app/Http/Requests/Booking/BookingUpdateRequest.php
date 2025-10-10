@@ -25,7 +25,7 @@ class BookingUpdateRequest extends FormRequest
             'extra_payment'        => 'nullable|numeric|min:0',
             'discount'             => 'nullable|numeric|min:0',
             'total_amount'         => 'sometimes|numeric|min:0',
-            'payment_status'       => 'sometimes|in:Pending,Paid,Cancelled',
+            'payment_status'       => 'sometimes|in:Pending,Paid,Cancelled,Failed,Refunded',
             'status'               => 'sometimes|in:Reserved,Ongoing,Completed,Cancelled',
             'identification_type'  => 'sometimes|string|max:50',
             'identification'       => 'sometimes|string|max:255',

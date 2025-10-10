@@ -73,8 +73,8 @@ class CarController extends Controller
             }
 
             // Let the service layer handle storing files and setting URLs
-
             $car = $this->carService->register($data);
+
             return $this->success('Car registered successfully!', $car);
         } catch (ValidationException $e) {
             return $this->validationError($e);

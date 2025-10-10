@@ -16,7 +16,7 @@ class UserRegisterRequest extends FormRequest
             'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
-            'type' => 'required|string|in:user,admin,tenant',
+            'type' => 'required|string|in:user,admin,tenant,borrower',
             'role' => 'required|string|in:member,editor,admin',
             'address' => 'required|string|max:255',
             'phone_number' => 'required|string|max:50',

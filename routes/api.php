@@ -12,6 +12,7 @@ use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CarController;
 use App\Http\Controllers\CarRateController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\PaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -95,6 +96,8 @@ Route::middleware('auth:sanctum')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('companies/upload-logo', [CompanyController::class, 'uploadLogo'])
+        ->name('companies.upload-logo');
     Route::apiResource('companies', CompanyController::class);
 });
 
@@ -126,4 +129,6 @@ Route::middleware('auth:sanctum')->group(function () {
 */
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('bookings', BookingController::class);
+    Route::get('bookings/{booking}/payments', [PaymentController::class, 'index']);
+    Route::post('bookings/{booking}/payments', [PaymentController::class, 'store']);
 });

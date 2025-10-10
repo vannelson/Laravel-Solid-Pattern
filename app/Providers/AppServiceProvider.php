@@ -45,6 +45,10 @@ use App\Services\Contracts\BookingServiceInterface;
 use App\Services\BookingService;
 use App\Repositories\Contracts\BookingRepositoryInterface;
 use App\Repositories\BookingRepository;
+use App\Services\Contracts\PaymentServiceInterface;
+use App\Services\PaymentService;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
+use App\Repositories\PaymentRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -59,6 +63,8 @@ class AppServiceProvider extends ServiceProvider
         // Bookings BookingServiceInterface and its implementation
         $this->app->bind(BookingServiceInterface::class, BookingService::class);
         $this->app->bind(BookingRepositoryInterface::class, BookingRepository::class);
+        $this->app->bind(PaymentServiceInterface::class, PaymentService::class);
+        $this->app->bind(PaymentRepositoryInterface::class, PaymentRepository::class);
 
         // CarRates CarRatesServiceInterface and its implementation
         $this->app->bind(CarRateServiceInterface::class, CarRateService::class);

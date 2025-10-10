@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Company\CompanyStoreRequest;
 use App\Http\Requests\Company\CompanyUpdateRequest;
 use App\Services\Contracts\CompanyServiceInterface;
+use App\Http\Requests\Company\CompanyLogoUploadRequest;
 use App\Http\Resources\Company\CompanyResource;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\JsonResponse;
@@ -52,7 +53,12 @@ class CompanyController extends Controller
     public function store(CompanyStoreRequest $request): JsonResponse
     {
        try {
-        $company = $this->companyService->register($request->validated());
+        $data = $request->validated();
+        if ($request->hasFile('logo')) {
+            $data['logo'] = $request->file('logo');
+        }
+
+        $company = $this->companyService->register($data);
         return $this->success('Company registered successfully!', $company);
         } catch (ValidationException $e) {
             return $this->validationError($e);
@@ -83,12 +89,41 @@ class CompanyController extends Controller
     public function update(CompanyUpdateRequest $request, int $id): JsonResponse
     {
         try {
-            $this->companyService->update($id, $request->validated());
+            $data = $request->validated();
+            if ($request->hasFile('logo')) {
+                $data['logo'] = $request->file('logo');
+            }
+
+            $this->companyService->update($id, $data);
             return $this->success('Company updated successfully!');
         } catch (ValidationException $e) {
             return $this->validationError($e);
         } catch (\Exception $e) {
             return $this->error('Failed to update user.', 500);
+        }
+    }
+
+    /**
+     * Upload a company logo and return its public URL.
+     *
+     * @param CompanyLogoUploadRequest $request
+     * @return JsonResponse
+     */
+    public function uploadLogo(CompanyLogoUploadRequest $request): JsonResponse
+    {
+        try {
+            $file = $request->file('image');
+            $path = $file->store('companies/logos', 'public');
+            $url = asset('storage/' . $path);
+
+            return $this->success('Logo uploaded successfully!', [
+                'url' => $url,
+                'path' => $path,
+            ]);
+        } catch (ValidationException $e) {
+            return $this->validationError($e);
+        } catch (\Exception $e) {
+            return $this->error('Failed to upload logo.', 500);
         }
     }
 

@@ -36,9 +36,19 @@ class BookingService implements BookingServiceInterface
      */
     public function detail(int $id): array
     {
-        return (new BookingResource($this->bookingRepository->findById($id)))
-            ->response()
-            ->getData(true);
+        $booking = $this->bookingRepository->findById($id);
+
+        $booking->loadMissing([
+            'car',
+            'borrower',
+            'tenant',
+            'latestPayment',
+            'payments' => static fn ($query) => $query
+                ->orderByDesc('paid_at')
+                ->orderByDesc('id'),
+        ]);
+
+        return (new BookingResource($booking))->response()->getData(true);
     }
 
     /**
@@ -77,6 +87,13 @@ class BookingService implements BookingServiceInterface
                 $booking->{$key} = $value;
             }
         }
+
+        $booking->loadMissing([
+            'car',
+            'borrower',
+            'tenant',
+            'latestPayment',
+        ]);
 
         return (new BookingResource($booking))->response()->getData(true);
     }

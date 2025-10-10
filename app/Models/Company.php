@@ -14,6 +14,8 @@ class Company extends Model
         'name',
         'address',
         'industry',
+        'is_default',
+        'logo',
     ];
 
     /**

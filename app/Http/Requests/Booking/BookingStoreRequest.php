@@ -28,7 +28,7 @@ class BookingStoreRequest extends FormRequest
             'extra_payment'        => 'nullable|numeric|min:0',
             'discount'             => 'nullable|numeric|min:0',
             'total_amount'         => 'required|numeric|min:0',
-            'payment_status'       => 'required|in:Pending,Paid,Cancelled',
+            'payment_status'       => 'required|in:Pending,Paid,Cancelled,Failed,Refunded',
             'status'               => 'required|in:Reserved,Ongoing,Completed,Cancelled',
             'identification_type'  => 'required|string|max:50',
             'identification'       => 'required|string|max:255',

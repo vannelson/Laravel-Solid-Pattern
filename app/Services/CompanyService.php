@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Repositories\Contracts\CompanyRepositoryInterface;
 use App\Services\Contracts\CompanyServiceInterface;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Storage;
 use App\Http\Resources\Company\CompanyResource;
 
 /**
@@ -63,7 +65,25 @@ class CompanyService implements CompanyServiceInterface
      */
     public function register(array $data): array
     {
+        $data = array_merge(['is_default' => false], $data);
+        $data['is_default'] = (bool) $data['is_default'];
+
+        $logoFile = Arr::get($data, 'logo');
+        if ($logoFile instanceof UploadedFile) {
+            unset($data['logo']);
+        }
+
+        if ($data['is_default'] === true) {
+            $this->companyRepository->clearDefaultForUser((int) $data['user_id']);
+        }
+
         $company = $this->companyRepository->create($data);
+
+        if ($logoFile instanceof UploadedFile) {
+            $logoUrl = $this->storeLogoFile((int) $company->id, $logoFile);
+            $this->companyRepository->update((int) $company->id, ['logo' => $logoUrl]);
+            $company->logo = $logoUrl;
+        }
 
         return (new CompanyResource($company))
                         ->response()->getData(true);
@@ -78,6 +98,23 @@ class CompanyService implements CompanyServiceInterface
      */
     public function update(int $id, array $data): bool
     {
+        if (Arr::exists($data, 'is_default')) {
+            $data['is_default'] = (bool) $data['is_default'];
+
+            if ($data['is_default'] === true) {
+                $company = $this->companyRepository->findById($id);
+
+                if ($company) {
+                    $this->companyRepository->clearDefaultForUser((int) $company->user_id, $id);
+                }
+            }
+        }
+
+        $logoFile = Arr::get($data, 'logo');
+        if ($logoFile instanceof UploadedFile) {
+            $data['logo'] = $this->storeLogoFile($id, $logoFile);
+        }
+
         return $this->companyRepository->update($id, $data);
     }
 
@@ -90,5 +127,18 @@ class CompanyService implements CompanyServiceInterface
     public function delete(int $id): bool
     {
         return $this->companyRepository->delete($id);
+    }
+
+    /**
+     * Store an uploaded logo file and return the public URL.
+     */
+    protected function storeLogoFile(int $companyId, UploadedFile $file): string
+    {
+        $folder = "companies/{$companyId}/logo";
+        Storage::disk('public')->deleteDirectory($folder);
+
+        $path = $file->store($folder, 'public');
+
+        return asset('storage/' . $path);
     }
 }

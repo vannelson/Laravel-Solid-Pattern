@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Http\Resources\Company\CompanyResource;
 use App\Repositories\UserRepository;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -41,8 +41,19 @@ class AuthService
             ]);
         }
 
+        $activeCompany = $user->activeCompany()->with('user')->first();
+
+        if (!$activeCompany) {
+            $activeCompany = $user->companies()->with('user')->oldest('id')->first();
+        }
+
+        $userData = $user->toArray();
+        $userData['active_company'] = $activeCompany
+            ? CompanyResource::make($activeCompany)->toArray(request())
+            : null;
+
         return [
-            'user' => $user,
+            'user' => $userData,
             'token' => $user->createToken('authToken')->plainTextToken,
         ];
     }

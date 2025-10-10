@@ -2,9 +2,10 @@
 
 namespace App\Http\Resources\Booking;
 
-use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\Car\CarResource;
+use App\Http\Resources\Payment\PaymentResource;
 use App\Http\Resources\User\UserResource;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class BookingResource extends JsonResource
 {
@@ -15,6 +16,14 @@ class BookingResource extends JsonResource
             'car'                   => new CarResource($this->whenLoaded('car')),
             'borrower'              => new UserResource($this->whenLoaded('borrower')),
             'tenant'                => new UserResource($this->whenLoaded('tenant')),
+            'latest_payment'        => $this->whenLoaded(
+                'latestPayment',
+                fn () => new PaymentResource($this->latestPayment)
+            ),
+            'payments'              => $this->whenLoaded(
+                'payments',
+                fn () => PaymentResource::collection($this->payments)
+            ),
             'start_date'            => $this->start_date,
             'end_date'              => $this->end_date,
             'expected_return_date'  => $this->expected_return_date,
