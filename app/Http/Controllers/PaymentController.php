@@ -24,7 +24,26 @@ class PaymentController extends Controller
     public function index(Request $request, int $booking): JsonResponse
     {
         $filters = Arr::get($request->all(), 'filters', []);
-        $order   = Arr::get($request->all(), 'order', ['paid_at', 'desc']);
+        $orderInput = Arr::get($request->all(), 'order');
+        $order = ['paid_at', 'desc'];
+
+        if (is_string($orderInput)) {
+            $order = [$orderInput, 'desc'];
+        } elseif (is_array($orderInput)) {
+            if (Arr::isAssoc($orderInput)) {
+                $order = [
+                    Arr::get($orderInput, 'column', 'paid_at'),
+                    Arr::get($orderInput, 'direction', 'desc'),
+                ];
+            } else {
+                $order = [
+                    Arr::get($orderInput, 0, 'paid_at'),
+                    Arr::get($orderInput, 1, 'desc'),
+                ];
+            }
+        }
+
+        $order[1] = strtolower((string) $order[1]) === 'asc' ? 'asc' : 'desc';
         $limit   = (int) Arr::get($request->all(), 'limit', 10);
         $page    = (int) Arr::get($request->all(), 'page', 1);
 
