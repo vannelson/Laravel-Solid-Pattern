@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('bookings')) {
+            return;
+        }
+
         Schema::table('bookings', function (Blueprint $table) {
             if (!Schema::hasColumn('bookings', 'is_lock')) {
                 $table->boolean('is_lock')->default(false)->after('renter_email');
@@ -17,6 +21,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (!Schema::hasTable('bookings')) {
+            return;
+        }
+
         Schema::table('bookings', function (Blueprint $table) {
             if (Schema::hasColumn('bookings', 'is_lock')) {
                 $table->dropColumn('is_lock');
@@ -24,3 +32,4 @@ return new class extends Migration
         });
     }
 };
+

@@ -52,7 +52,10 @@ class CarRepository extends BaseRepository implements CarRepositoryInterface
             $query->with($relationshipIncludes);
         }
 
-        // Primary filters (AND): make, availability, transmission, fuel type
+        // Primary filters (AND): company, make, availability, transmission, fuel type
+        if ($companyId = Arr::get($filters, 'company_id')) {
+            $query->where('company_id', $companyId);
+        }
         if ($make = Arr::get($filters, 'info_make')) {
             $query->where('info_make', 'LIKE', "%$make%");
         }

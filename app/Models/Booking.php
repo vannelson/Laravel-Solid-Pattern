@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPayment;
+use App\Models\Company;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -13,6 +14,7 @@ class Booking extends Model
 
     protected $fillable = [
         'car_id',
+        'company_id',
         'borrower_id',
         'tenant_id',
         'start_date',
@@ -52,6 +54,14 @@ class Booking extends Model
     public function car()
     {
         return $this->belongsTo(Car::class);
+    }
+
+    /**
+     * The company that owns the booked car.
+     */
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

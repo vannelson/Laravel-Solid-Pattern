@@ -24,6 +24,11 @@ class BookingSeeder extends Seeder
         for ($i = 0; $i < 30; $i++) {
             $carId      = fake()->randomElement($cars);
             $borrowerId = fake()->randomElement($borrowers);
+            $car        = Car::find($carId);
+
+            if ($car === null) {
+                continue;
+            }
 
             $startDate = fake()->dateTimeBetween('-10 days', '+5 days');
             $endDate   = (clone $startDate)->modify('+' . rand(1, 5) . ' days');
@@ -41,6 +46,7 @@ class BookingSeeder extends Seeder
 
             $booking = Booking::create([
                 'car_id'               => $carId,
+                'company_id'           => $car->company_id,
                 'borrower_id'          => $borrowerId,
                 'tenant_id'            => $tenantId,
                 'start_date'           => $startDate,

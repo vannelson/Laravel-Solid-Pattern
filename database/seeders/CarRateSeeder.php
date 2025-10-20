@@ -11,30 +11,41 @@ class CarRateSeeder extends Seeder
 {
     public function run(): void
     {
-        $faker = Faker::create();
+        $faker = Faker::create('en_PH');
+
+        $dailyRates = [2500, 3200, 3500, 3800, 4200, 4800, 5200];
+        $secondaryRates = ['Weekend Flex Rate', 'Corporate Package', 'Peak Season Rate', 'Night Shift Rate'];
 
         $cars = Car::all();
 
         foreach ($cars as $car) {
-            // 1 Active Regular Rate
-            CarRate::create([
-                'car_id'    => $car->id,
-                'name'      => 'Regular Rate',
-                'rate'      => $faker->numberBetween(1500, 4000),
-                'rate_type' => 'daily',
-                'start_date'=> now(),
-                'status'    => 'active',
-            ]);
+            $baseRateValue = $faker->randomElement($dailyRates);
 
-            // 1 Inactive Seasonal Rate
-            CarRate::create([
-                'car_id'    => $car->id,
-                'name'      => $faker->randomElement(['Christmas Price', 'Summer Rate']),
-                'rate'      => $faker->numberBetween(2000, 6000),
-                'rate_type' => 'daily',
-                'start_date'=> $faker->date(),
-                'status'    => 'inactive',
-            ]);
+            CarRate::updateOrCreate(
+                [
+                    'car_id' => $car->id,
+                    'name'   => 'Regular Rate',
+                ],
+                [
+                    'rate'       => $baseRateValue,
+                    'rate_type'  => 'daily',
+                    'start_date' => now()->subMonths($faker->numberBetween(0, 6))->startOfMonth(),
+                    'status'     => 'active',
+                ]
+            );
+
+            CarRate::updateOrCreate(
+                [
+                    'car_id' => $car->id,
+                    'name'   => $faker->randomElement($secondaryRates),
+                ],
+                [
+                    'rate'       => $baseRateValue + $faker->numberBetween(300, 1200),
+                    'rate_type'  => 'daily',
+                    'start_date' => now()->addMonths($faker->numberBetween(1, 3))->startOfMonth(),
+                    'status'     => 'inactive',
+                ]
+            );
         }
     }
 }

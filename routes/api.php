@@ -13,6 +13,7 @@ use App\Http\Controllers\CarController;
 use App\Http\Controllers\CarRateController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\TenantDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -131,4 +132,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('bookings', BookingController::class);
     Route::get('bookings/{booking}/payments', [PaymentController::class, 'index']);
     Route::post('bookings/{booking}/payments', [PaymentController::class, 'store']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Tenant Dashboard
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('tenant/dashboard/summary', [TenantDashboardController::class, 'summary']);
 });

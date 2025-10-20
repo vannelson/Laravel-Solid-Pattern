@@ -33,6 +33,11 @@ class CompanyRepository extends BaseRepository implements CompanyRepositoryInter
          $query = $this->model->newQuery();
         // eager load user
         $query->with('user');
+        // Primary filter: owner
+        if ($userId = Arr::get($filters, 'user_id')) {
+            $query->where('user_id', $userId);
+        }
+
         // Apply optional filters
         if ($name = Arr::get($filters, 'name')) {
             $query->where('name', 'LIKE', "%$name%");

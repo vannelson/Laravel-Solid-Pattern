@@ -49,6 +49,8 @@ use App\Services\Contracts\PaymentServiceInterface;
 use App\Services\PaymentService;
 use App\Repositories\Contracts\PaymentRepositoryInterface;
 use App\Repositories\PaymentRepository;
+use App\Services\Contracts\TenantMetricsServiceInterface;
+use App\Services\TenantMetricsService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -73,6 +75,9 @@ class AppServiceProvider extends ServiceProvider
         // Car CarServiceInterface and its implementation
         $this->app->bind(CarServiceInterface::class, CarService::class);
         $this->app->bind(CarRepositoryInterface::class, CarRepository::class);
+
+        // Tenant dashboard metrics
+        $this->app->bind(TenantMetricsServiceInterface::class, TenantMetricsService::class);
 
         // Registering CompanyServiceInterface and its implementation
         $this->app->bind(CompanyServiceInterface::class, CompanyService::class);

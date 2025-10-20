@@ -18,6 +18,7 @@ class BookingUpdateRequest extends FormRequest
             'end_date'             => 'sometimes|date|after:start_date',
             'expected_return_date' => 'sometimes|date|after_or_equal:end_date',
             'actual_return_date'   => 'nullable|date',
+            'company_id'           => 'sometimes|exists:companies,id',
             'destination'          => 'nullable|string|max:255',
             'rate'                 => 'sometimes|numeric|min:0',
             'rate_type'            => 'sometimes|in:daily,hourly',

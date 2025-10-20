@@ -34,6 +34,9 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             $query->with($includes);
         }
 
+        if ($companyId = Arr::get($filters, 'company_id')) {
+            $query->where('company_id', $companyId);
+        }
         if ($carId = Arr::get($filters, 'car_id')) {
             $query->where('car_id', $carId);
         }

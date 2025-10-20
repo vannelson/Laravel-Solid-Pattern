@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Http\Resources\Booking\BookingResource;
+use App\Models\Car;
 use App\Repositories\Contracts\BookingRepositoryInterface;
 use App\Services\Contracts\BookingServiceInterface;
 use Illuminate\Http\UploadedFile;
@@ -40,6 +41,7 @@ class BookingService implements BookingServiceInterface
 
         $booking->loadMissing([
             'car',
+            'company',
             'borrower',
             'tenant',
             'latestPayment',
@@ -70,6 +72,14 @@ class BookingService implements BookingServiceInterface
             $data['is_lock'] = (bool) $data['is_lock'];
         }
 
+        $carCompanyId = Car::query()->whereKey($data['car_id'])->value('company_id');
+        if ($carCompanyId === null) {
+            throw ValidationException::withMessages([
+                'car_id' => ['Selected car is invalid.'],
+            ]);
+        }
+        $data['company_id'] = $carCompanyId;
+
         $this->ensureNoConflict($data['car_id'], $data['start_date'], $data['end_date']);
 
         [$files, $retainedImages, $dataUris] = $this->extractIdentificationUploads($data);
@@ -90,6 +100,7 @@ class BookingService implements BookingServiceInterface
 
         $booking->loadMissing([
             'car',
+            'company',
             'borrower',
             'tenant',
             'latestPayment',
@@ -117,6 +128,16 @@ class BookingService implements BookingServiceInterface
 
         if ($carId && $start && $end) {
             $this->ensureNoConflict($carId, $start, $end, $id);
+        }
+
+        if ($carId) {
+            $carCompanyId = Car::query()->whereKey($carId)->value('company_id');
+            if ($carCompanyId === null) {
+                throw ValidationException::withMessages([
+                    'car_id' => ['Selected car is invalid.'],
+                ]);
+            }
+            $data['company_id'] = $carCompanyId;
         }
 
         [$files, $retainedImages, $dataUris, $hasImagesKey] = $this->extractIdentificationUploads($data, true);

@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Booking;
 
 use App\Http\Resources\Car\CarResource;
+use App\Http\Resources\Company\CompanyResource;
 use App\Http\Resources\Payment\PaymentResource;
 use App\Http\Resources\User\UserResource;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -14,6 +15,7 @@ class BookingResource extends JsonResource
         return [
             'id'                    => $this->id,
             'car'                   => new CarResource($this->whenLoaded('car')),
+            'company'               => new CompanyResource($this->whenLoaded('company')),
             'borrower'              => new UserResource($this->whenLoaded('borrower')),
             'tenant'                => new UserResource($this->whenLoaded('tenant')),
             'latest_payment'        => $this->whenLoaded(
@@ -31,6 +33,7 @@ class BookingResource extends JsonResource
             'destination'           => $this->destination,
             'rate'                  => $this->rate,
             'rate_type'             => $this->rate_type,
+            'company_id'            => $this->company_id,
             'base_amount'           => $this->base_amount,
             'extra_payment'         => $this->extra_payment,
             'discount'              => $this->discount,
