@@ -12,6 +12,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -40,6 +41,15 @@ class TenantMetricsService implements TenantMetricsServiceInterface
         'custom',
     ];
 
+    private const UNAVAILABLE_STATUSES = [
+        'maintenance',
+        'out_of_service',
+        'out-of-service',
+        'inactive',
+        'workshop',
+        'repair',
+    ];
+
     private const DATE_FIELD_MAP = [
         'actual_return'       => ['column' => 'actual_return_date', 'fallback' => 'end_date'],
         'actual_return_date'  => ['column' => 'actual_return_date', 'fallback' => 'end_date'],
@@ -62,6 +72,21 @@ class TenantMetricsService implements TenantMetricsServiceInterface
 
         return Cache::remember($cacheKey, $ttl, function () use ($tenant, $normalized) {
             return $this->buildSummary($tenant, $normalized);
+        });
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getFleetUtilization(User $tenant, array $filters = []): array
+    {
+        $normalized = $this->normaliseUtilizationFilters($filters);
+
+        $cacheKey = $this->makeUtilizationCacheKey((int) $tenant->getKey(), $normalized);
+        $ttl = now()->addMinutes(self::CACHE_TTL_MINUTES);
+
+        return Cache::remember($cacheKey, $ttl, function () use ($tenant, $normalized) {
+            return $this->buildFleetUtilization($tenant, $normalized);
         });
     }
 
@@ -309,6 +334,255 @@ class TenantMetricsService implements TenantMetricsServiceInterface
     }
 
     /**
+     * Build the fleet utilisation payload.
+     *
+     * @param array<string, mixed> $filters
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildFleetUtilization(User $tenant, array $filters): array
+    {
+        $companyScope = $this->resolveCompanyScope($tenant, $filters['company_id']);
+
+        if (empty($companyScope)) {
+            return $this->emptyFleetUtilization($filters);
+        }
+
+        $cars = Car::query()
+            ->select(['id', 'company_id', 'info_carType', 'info_availabilityStatus'])
+            ->whereIn('company_id', $companyScope)
+            ->get();
+
+        $fleet = $cars->count();
+        $unavailable = $this->countUnavailableCars($cars);
+
+        $activeCarIds = $this->resolveActiveCarIds($companyScope, $filters['statuses'], $filters['as_of']);
+        $activeCount = $activeCarIds->count();
+        $availableCount = max($fleet - $activeCount - $unavailable, 0);
+        $rate = $fleet > 0 ? round($activeCount / $fleet, 4) : 0.0;
+
+        $companyIdForResponse = $filters['company_id'] ?? (count($companyScope) === 1 ? $companyScope[0] : null);
+
+        $response = [
+            'company_id' => $companyIdForResponse,
+            'preset' => $filters['preset'],
+            'as_of' => $filters['as_of']->copy()->setTimezone($filters['response_timezone'])->toIso8601String(),
+            'totals' => [
+                'fleet' => $fleet,
+                'active_rentals' => $activeCount,
+                'available' => $availableCount,
+                'unavailable' => $unavailable,
+            ],
+            'utilization' => [
+                'rate' => $rate,
+                'label' => $this->formatPercentage($rate),
+            ],
+            'refresh' => [
+                'next_poll_seconds' => 300,
+                'granularity' => $filters['granularity'],
+            ],
+            'breakdown' => $this->buildUtilizationBreakdown($cars, $activeCarIds),
+        ];
+
+        if ($filters['include_trend']) {
+            [$previousStart, $previousEnd, $previousReference] = $this->resolvePreviousWindow(
+                $filters['granularity'],
+                $filters['as_of']
+            );
+
+            $previousActiveCarIds = $this->resolveActiveCarIds($companyScope, $filters['statuses'], $previousReference);
+            $previousActive = $previousActiveCarIds->count();
+            $previousRate = $fleet > 0 ? round($previousActive / $fleet, 4) : 0.0;
+            $percentChange = $previousRate > 0
+                ? round((($rate - $previousRate) / $previousRate) * 100, 2)
+                : null;
+
+            $response['utilization']['trend'] = [
+                'percent_change' => $percentChange,
+                'previous' => [
+                    'period' => [
+                        'start' => $previousStart->copy()->setTimezone($filters['response_timezone'])->toDateString(),
+                        'end'   => $previousEnd->copy()->setTimezone($filters['response_timezone'])->toDateString(),
+                    ],
+                    'rate' => $previousRate,
+                    'active_rentals' => $previousActive,
+                ],
+            ];
+        }
+
+        return $response;
+    }
+
+    /**
+     * Build an empty fleet utilisation payload when no companies are accessible.
+     *
+     * @param array<string, mixed> $filters
+     *
+     * @return array<string, mixed>
+     */
+    protected function emptyFleetUtilization(array $filters): array
+    {
+        $response = [
+            'company_id' => $filters['company_id'] ?? null,
+            'preset' => $filters['preset'],
+            'as_of' => $filters['as_of']->copy()->setTimezone($filters['response_timezone'])->toIso8601String(),
+            'totals' => [
+                'fleet' => 0,
+                'active_rentals' => 0,
+                'available' => 0,
+                'unavailable' => 0,
+            ],
+            'utilization' => [
+                'rate' => 0.0,
+                'label' => $this->formatPercentage(0.0),
+            ],
+            'refresh' => [
+                'next_poll_seconds' => 300,
+                'granularity' => $filters['granularity'],
+            ],
+            'breakdown' => [],
+        ];
+
+        if ($filters['include_trend']) {
+            [$previousStart, $previousEnd] = $this->resolvePreviousWindow($filters['granularity'], $filters['as_of']);
+
+            $response['utilization']['trend'] = [
+                'percent_change' => null,
+                'previous' => [
+                    'period' => [
+                        'start' => $previousStart->copy()->setTimezone($filters['response_timezone'])->toDateString(),
+                        'end'   => $previousEnd->copy()->setTimezone($filters['response_timezone'])->toDateString(),
+                    ],
+                    'rate' => 0.0,
+                    'active_rentals' => 0,
+                ],
+            ];
+        }
+
+        return $response;
+    }
+
+    /**
+     * Determine active car IDs for the supplied company scope at a reference time.
+     *
+     * @param array<int>          $companyIds
+     * @param array<int, string>  $statuses
+     */
+    protected function resolveActiveCarIds(array $companyIds, array $statuses, Carbon $reference): Collection
+    {
+        if (empty($companyIds)) {
+            return collect();
+        }
+
+        $referenceString = $reference->format('Y-m-d H:i:s');
+
+        return Booking::query()
+            ->select('car_id')
+            ->whereNotNull('car_id')
+            ->whereIn('company_id', $companyIds)
+            ->whereIn('status', $statuses)
+            ->whereNotIn('status', self::EXCLUDED_STATUSES)
+            ->where(function ($query) use ($referenceString) {
+                $query->where('start_date', '<=', $referenceString)
+                    ->whereRaw('COALESCE(actual_return_date, end_date, expected_return_date, start_date) >= ?', [$referenceString]);
+            })
+            ->pluck('car_id')
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+    }
+
+    /**
+     * Count cars flagged as unavailable based on their availability status.
+     */
+    protected function countUnavailableCars(Collection $cars): int
+    {
+        if ($cars->isEmpty()) {
+            return 0;
+        }
+
+        $statuses = array_map('mb_strtolower', self::UNAVAILABLE_STATUSES);
+
+        return $cars->filter(static function ($car) use ($statuses) {
+            $status = $car->info_availabilityStatus ?? '';
+            return in_array(mb_strtolower((string) $status), $statuses, true);
+        })->count();
+    }
+
+    /**
+     * Build utilisation breakdown by car classification.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function buildUtilizationBreakdown(Collection $cars, Collection $activeCarIds): array
+    {
+        if ($cars->isEmpty()) {
+            return [];
+        }
+
+        $activeLookup = $activeCarIds
+            ->mapWithKeys(static fn ($id) => [(int) $id => true])
+            ->all();
+
+        return $cars
+            ->groupBy(function ($car) {
+                $label = trim((string) ($car->info_carType ?? 'Unspecified'));
+                return $label !== '' ? $label : 'Unspecified';
+            })
+            ->map(function (Collection $group, string $label) use ($activeLookup) {
+                $fleet = $group->count();
+                $active = $group->filter(static function ($car) use ($activeLookup) {
+                    return isset($activeLookup[(int) $car->id]);
+                })->count();
+                $rate = $fleet > 0 ? round($active / $fleet, 4) : 0.0;
+
+                return [
+                    'label' => $label,
+                    'utilization' => $rate,
+                    'active' => $active,
+                    'fleet' => $fleet,
+                ];
+            })
+            ->sortByDesc('utilization')
+            ->values()
+            ->map(static function (array $item) {
+                $item['utilization'] = round((float) $item['utilization'], 2);
+                return $item;
+            })
+            ->all();
+    }
+
+    /**
+     * Resolve the previous comparison window for utilisation trends.
+     *
+     * @return array{0:Carbon,1:Carbon,2:Carbon}
+     */
+    protected function resolvePreviousWindow(string $granularity, Carbon $currentReference): array
+    {
+        if ($granularity === 'hour') {
+            $currentStart = $currentReference->copy()->startOfHour();
+            $currentEnd = $currentReference->copy()->endOfHour();
+            $previousEnd = $currentStart->copy()->subSecond();
+            $previousStart = $previousEnd->copy()->startOfHour();
+        } else {
+            $currentStart = $currentReference->copy()->startOfDay();
+            $currentEnd = $currentReference->copy()->endOfDay();
+            $previousEnd = $currentStart->copy()->subSecond();
+            $previousStart = $previousEnd->copy()->startOfDay();
+        }
+
+        return [$previousStart, $previousEnd, $previousEnd->copy()];
+    }
+
+    /**
+     * Format a ratio as a percentage string.
+     */
+    protected function formatPercentage(float $ratio, int $precision = 2): string
+    {
+        return number_format($ratio * 100, $precision) . '%';
+    }
+
+    /**
      * Calculate trend information when requested.
      */
     protected function calculateTrend(
@@ -326,8 +600,21 @@ class TenantMetricsService implements TenantMetricsServiceInterface
         $previousEnd = $currentStart->copy()->subDay()->endOfDay();
         $previousStart = $previousEnd->copy()->subDays($rangeDays - 1)->startOfDay();
 
-        $yearStart = Carbon::create($filters['year'], 1, 1, 0, 0, 0, 'Asia/Manila')->startOfDay();
-        $yearEnd = (clone $yearStart)->endOfYear();
+        if ($previousStart->gt($previousEnd)) {
+            return [
+                'previous' => [
+                    'annualRevenue' => 0.0,
+                    'bookingsYtd' => 0,
+                    'averageBookingValue' => 0.0,
+                    'period' => null,
+                ],
+                'percentChange' => [
+                    'annualRevenue' => null,
+                    'bookingsYtd' => null,
+                    'averageBookingValue' => null,
+                ],
+            ];
+        }
 
         $previousSummary = $this->summariseRange(
             $companyScope,
@@ -544,6 +831,50 @@ class TenantMetricsService implements TenantMetricsServiceInterface
     }
 
     /**
+     * Normalise incoming filter values for fleet utilisation requests.
+     *
+     * @param array<string, mixed> $filters
+     *
+     * @return array<string, mixed>
+     */
+    protected function normaliseUtilizationFilters(array $filters): array
+    {
+        $base = $this->normaliseFilters($filters);
+
+        $timezone = $this->resolveTimezone(Arr::get($filters, 'timezone'));
+        $granularity = Str::lower((string) Arr::get($filters, 'granularity', 'day'));
+        if (!in_array($granularity, ['day', 'hour'], true)) {
+            $granularity = 'day';
+        }
+
+        $now = now('Asia/Manila');
+        [$rangeStart, $rangeEnd] = $this->resolveDateRange(
+            (int) $base['year'],
+            $base['preset'],
+            $base['custom_start'],
+            $base['custom_end'],
+            $now
+        );
+
+        $asOf = $now->copy();
+        if ($asOf->gt($rangeEnd)) {
+            $asOf = $rangeEnd->copy();
+        }
+        if ($asOf->lt($rangeStart)) {
+            $asOf = $rangeStart->copy();
+        }
+
+        $base['range_start'] = $rangeStart;
+        $base['range_end'] = $rangeEnd;
+        $base['as_of'] = $asOf;
+        $base['response_timezone'] = $timezone;
+        $base['granularity'] = $granularity;
+        $base['statuses'] = $base['statuses'] ?? $this->defaultStatuses();
+
+        return $base;
+    }
+
+    /**
      * Convert a year into a [start, end] range bound inside Asia/Manila timezone.
      *
      * @param int $year
@@ -574,11 +905,59 @@ class TenantMetricsService implements TenantMetricsServiceInterface
     }
 
     /**
+     * Produce a cache key for fleet utilisation responses.
+     *
+     * @param int                $tenantId
+     * @param array<string,mixed> $filters
+     */
+    protected function makeUtilizationCacheKey(int $tenantId, array $filters): string
+    {
+        $payload = [
+            'company_id'   => $filters['company_id'] ?? null,
+            'preset'       => $filters['preset'] ?? null,
+            'custom_start' => $filters['custom_start'] ?? null,
+            'custom_end'   => $filters['custom_end'] ?? null,
+            'granularity'  => $filters['granularity'] ?? 'day',
+            'includeTrend' => $filters['include_trend'] ?? false,
+            'range_start'  => $filters['range_start'] instanceof Carbon ? $filters['range_start']->format('Y-m-d H:i:s') : null,
+            'range_end'    => $filters['range_end'] instanceof Carbon ? $filters['range_end']->format('Y-m-d H:i:s') : null,
+            'as_of'        => $filters['as_of'] instanceof Carbon ? $filters['as_of']->format('Y-m-d H:i:s') : null,
+            'timezone'     => $filters['response_timezone'] ?? null,
+            'statuses'     => $filters['statuses'] ?? [],
+        ];
+
+        $payload['statuses'] = is_array($payload['statuses']) ? array_values($payload['statuses']) : [];
+
+        ksort($payload);
+
+        return sprintf('tenant-fleet-util:%d:%s', $tenantId, md5(json_encode($payload)));
+    }
+
+    /**
      * Round money values to two decimal places.
      */
     protected function roundMoney(float $value): float
     {
         return round($value, 2);
+    }
+
+    /**
+     * Resolve a timezone string, falling back to the application default when invalid.
+     */
+    protected function resolveTimezone(?string $timezone): string
+    {
+        $default = config('app.timezone', 'UTC');
+
+        if (!$timezone) {
+            return $default;
+        }
+
+        try {
+            new \DateTimeZone($timezone);
+            return $timezone;
+        } catch (\Exception $exception) {
+            return $default;
+        }
     }
 
     /**
@@ -630,5 +1009,15 @@ class TenantMetricsService implements TenantMetricsServiceInterface
         }
 
         return $response;
+    }
+
+    /**
+     * Default booking statuses used for utilisation counting.
+     *
+     * @return array<int, string>
+     */
+    protected function defaultStatuses(): array
+    {
+        return array_values(array_diff(self::DEFAULT_STATUSES, self::EXCLUDED_STATUSES));
     }
 }

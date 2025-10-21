@@ -141,4 +141,5 @@ Route::middleware('auth:sanctum')->group(function () {
 */
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('tenant/dashboard/summary', [TenantDashboardController::class, 'summary']);
+    Route::get('tenant/dashboard/fleet-utilization', [TenantDashboardController::class, 'fleetUtilization']);
 });
