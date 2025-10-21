@@ -329,46 +329,6 @@ class TenantMetricsService implements TenantMetricsServiceInterface
         $yearStart = Carbon::create($filters['year'], 1, 1, 0, 0, 0, 'Asia/Manila')->startOfDay();
         $yearEnd = (clone $yearStart)->endOfYear();
 
-        if ($previousEnd->lt($yearStart)) {
-            return [
-                'previous' => [
-                    'annualRevenue' => 0.0,
-                    'bookingsYtd' => 0,
-                    'averageBookingValue' => 0.0,
-                    'period' => null,
-                ],
-                'percentChange' => [
-                    'annualRevenue' => null,
-                    'bookingsYtd' => null,
-                    'averageBookingValue' => null,
-                ],
-            ];
-        }
-
-        if ($previousStart->lt($yearStart)) {
-            $previousStart = $yearStart->copy();
-        }
-
-        if ($previousEnd->gt($yearEnd)) {
-            $previousEnd = $yearEnd->copy();
-        }
-
-        if ($previousStart->gt($previousEnd)) {
-            return [
-                'previous' => [
-                    'annualRevenue' => 0.0,
-                    'bookingsYtd' => 0,
-                    'averageBookingValue' => 0.0,
-                    'period' => null,
-                ],
-                'percentChange' => [
-                    'annualRevenue' => null,
-                    'bookingsYtd' => null,
-                    'averageBookingValue' => null,
-                ],
-            ];
-        }
-
         $previousSummary = $this->summariseRange(
             $companyScope,
             $filters,
@@ -382,10 +342,12 @@ class TenantMetricsService implements TenantMetricsServiceInterface
                 'annualRevenue' => $previousSummary['revenue'],
                 'bookingsYtd' => $previousSummary['count'],
                 'averageBookingValue' => $previousSummary['average'],
-                'period' => [
-                    'start' => $previousStart->toIso8601String(),
-                    'end'   => $previousEnd->toIso8601String(),
-                ],
+                'period' => $previousSummary['count'] > 0 || $previousSummary['revenue'] > 0
+                    ? [
+                        'start' => $previousStart->toIso8601String(),
+                        'end'   => $previousEnd->toIso8601String(),
+                    ]
+                    : null,
             ],
             'percentChange' => [
                 'annualRevenue' => $this->calculatePercentChange($previousSummary['revenue'], $currentRevenue),
@@ -670,5 +632,3 @@ class TenantMetricsService implements TenantMetricsServiceInterface
         return $response;
     }
 }
-
-
