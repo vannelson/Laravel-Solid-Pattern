@@ -51,6 +51,8 @@ use App\Repositories\Contracts\PaymentRepositoryInterface;
 use App\Repositories\PaymentRepository;
 use App\Services\Contracts\TenantMetricsServiceInterface;
 use App\Services\TenantMetricsService;
+use App\Services\Contracts\TenantReportServiceInterface;
+use App\Services\Reports\TenantReportService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -78,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Tenant dashboard metrics
         $this->app->bind(TenantMetricsServiceInterface::class, TenantMetricsService::class);
+        $this->app->bind(TenantReportServiceInterface::class, TenantReportService::class);
 
         // Registering CompanyServiceInterface and its implementation
         $this->app->bind(CompanyServiceInterface::class, CompanyService::class);

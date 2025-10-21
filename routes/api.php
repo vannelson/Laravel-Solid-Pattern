@@ -14,6 +14,7 @@ use App\Http\Controllers\CarRateController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\TenantDashboardController;
+use App\Http\Controllers\TenantReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -142,4 +143,5 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('tenant/dashboard/summary', [TenantDashboardController::class, 'summary']);
     Route::get('tenant/dashboard/fleet-utilization', [TenantDashboardController::class, 'fleetUtilization']);
+    Route::get('tenant/dashboard/monthly-sales', [TenantReportController::class, 'monthlySales']);
 });

@@ -7,6 +7,7 @@ use App\Models\Car;
 use App\Models\Company;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Concerns\ResolvesTenantScope;
 use App\Services\Contracts\TenantMetricsServiceInterface;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,11 +16,11 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TenantMetricsService implements TenantMetricsServiceInterface
 {
+    use ResolvesTenantScope;
     private const CACHE_TTL_MINUTES = 5;
 
     private const DEFAULT_STATUSES = ['Reserved', 'Ongoing', 'Completed'];
@@ -582,6 +583,17 @@ class TenantMetricsService implements TenantMetricsServiceInterface
         return number_format($ratio * 100, $precision) . '%';
     }
 
+    protected function calculatePercentChange($previous, $current): ?float
+    {
+        if ((float) $previous === 0.0) {
+            return null;
+        }
+
+        $change = (($current - $previous) / $previous) * 100;
+
+        return $this->roundMoney($change);
+    }
+
     /**
      * Calculate trend information when requested.
      */
@@ -647,36 +659,6 @@ class TenantMetricsService implements TenantMetricsServiceInterface
     /**
      * Calculate percentage change between two values.
      */
-    protected function calculatePercentChange($previous, $current): ?float
-    {
-        if ((float) $previous === 0.0) {
-            return null;
-        }
-
-        $change = (($current - $previous) / $previous) * 100;
-
-        return $this->roundMoney($change);
-    }
-
-    protected function resolveCurrency(?string $requested, array $companyIds = []): string
-    {
-        if ($requested !== null && $requested !== '') {
-            return strtoupper($requested);
-        }
-
-        if (!empty($companyIds) && Schema::hasTable('companies') && Schema::hasColumn('companies', 'currency')) {
-            $currency = Company::query()
-                ->whereIn('id', $companyIds)
-                ->value('currency');
-
-            if (!empty($currency)) {
-                return strtoupper($currency);
-            }
-        }
-
-        return 'PHP';
-    }
-
     /**
      * Aggregate annual revenue via payments when requested.
      *
@@ -719,35 +701,6 @@ class TenantMetricsService implements TenantMetricsServiceInterface
         } else {
             $query->whereBetween($dateColumn, [$rangeStart, $rangeEnd]);
         }
-    }
-
-    /**
-     * Resolve the tenant's accessible companies, validating explicit selections.
-     *
-     * @param User    $tenant
-     * @param int|null $requestedCompanyId
-     *
-     * @return array<int>
-     *
-     * @throws AuthorizationException
-     */
-    protected function resolveCompanyScope(User $tenant, ?int $requestedCompanyId): array
-    {
-        $accessible = Company::query()
-            ->where('user_id', $tenant->getKey())
-            ->pluck('id')
-            ->map(static fn ($id) => (int) $id)
-            ->all();
-
-        if ($requestedCompanyId === null) {
-            return $accessible;
-        }
-
-        if (!in_array($requestedCompanyId, $accessible, true)) {
-            throw new AuthorizationException('You are not allowed to access the requested company.');
-        }
-
-        return [$requestedCompanyId];
     }
 
     /**
