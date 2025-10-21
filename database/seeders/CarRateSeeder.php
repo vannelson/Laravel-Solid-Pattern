@@ -12,14 +12,18 @@ class CarRateSeeder extends Seeder
     public function run(): void
     {
         $faker = Faker::create('en_PH');
-
-        $dailyRates = [2500, 3200, 3500, 3800, 4200, 4800, 5200];
-        $secondaryRates = ['Weekend Flex Rate', 'Corporate Package', 'Peak Season Rate', 'Night Shift Rate'];
+        $secondaryRates = [
+            'Weekend Flex Rate',
+            'Corporate Package',
+            'Peak Season Rate',
+            'Night Shift Rate',
+            'Holiday Special',
+        ];
 
         $cars = Car::all();
 
         foreach ($cars as $car) {
-            $baseRateValue = $faker->randomElement($dailyRates);
+            $baseRateValue = $faker->numberBetween(2000, 5000);
 
             CarRate::updateOrCreate(
                 [
@@ -29,23 +33,27 @@ class CarRateSeeder extends Seeder
                 [
                     'rate'       => $baseRateValue,
                     'rate_type'  => 'daily',
-                    'start_date' => now()->subMonths($faker->numberBetween(0, 6))->startOfMonth(),
+                    'start_date' => now()->subMonths($faker->numberBetween(0, 2))->startOfMonth(),
                     'status'     => 'active',
                 ]
             );
 
-            CarRate::updateOrCreate(
-                [
-                    'car_id' => $car->id,
-                    'name'   => $faker->randomElement($secondaryRates),
-                ],
-                [
-                    'rate'       => $baseRateValue + $faker->numberBetween(300, 1200),
-                    'rate_type'  => 'daily',
-                    'start_date' => now()->addMonths($faker->numberBetween(1, 3))->startOfMonth(),
-                    'status'     => 'inactive',
-                ]
-            );
+            $otherRates = $faker->randomElements($secondaryRates, $faker->numberBetween(1, 2));
+
+            foreach ($otherRates as $rateName) {
+                CarRate::updateOrCreate(
+                    [
+                        'car_id' => $car->id,
+                        'name'   => $rateName,
+                    ],
+                    [
+                        'rate'       => $baseRateValue + $faker->numberBetween(200, 1200),
+                        'rate_type'  => $faker->randomElement(['daily', 'weekly']),
+                        'start_date' => now()->addMonths($faker->numberBetween(1, 4))->startOfMonth(),
+                        'status'     => 'inactive',
+                    ]
+                );
+            }
         }
     }
 }
