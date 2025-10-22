@@ -6,6 +6,8 @@ use App\Http\Requests\Dashboard\HighlightsRequest;
 use App\Http\Requests\Dashboard\MonthlySalesRequest;
 use App\Http\Requests\Dashboard\RevenueByClassRequest;
 use App\Http\Requests\Dashboard\UtilizationSnapshotRequest;
+use App\Http\Requests\Dashboard\UpcomingBookingsRequest;
+use App\Http\Requests\Dashboard\TopPerformersRequest;
 use App\Services\Contracts\TenantReportServiceInterface;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -112,6 +114,54 @@ class TenantReportController extends Controller
 
             return response()->json([
                 'message' => 'Failed to load utilisation snapshot.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Provide the upcoming bookings schedule.
+     */
+    public function upcomingBookings(UpcomingBookingsRequest $request): JsonResponse
+    {
+        $tenant = $request->user();
+
+        try {
+            $payload = $this->reports->getUpcomingBookings($tenant, $request->validated());
+
+            return response()->json($payload);
+        } catch (AuthorizationException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 403);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Failed to load upcoming bookings.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Surface top-performing vehicles for the dashboard.
+     */
+    public function topPerformers(TopPerformersRequest $request): JsonResponse
+    {
+        $tenant = $request->user();
+
+        try {
+            $payload = $this->reports->getTopPerformers($tenant, $request->validated());
+
+            return response()->json($payload);
+        } catch (AuthorizationException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 403);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Failed to load top performers.',
             ], 500);
         }
     }

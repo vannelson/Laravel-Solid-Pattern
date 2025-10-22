@@ -147,4 +147,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('tenant/dashboard/revenue-by-class', [TenantReportController::class, 'revenueByClass']);
     Route::get('tenant/dashboard/monthly-sales', [TenantReportController::class, 'monthlySales']);
     Route::get('tenant/dashboard/utilization', [TenantReportController::class, 'utilization']);
+    Route::get('tenant/dashboard/upcoming-bookings', [TenantReportController::class, 'upcomingBookings']);
+    Route::get('tenant/dashboard/top-performers', [TenantReportController::class, 'topPerformers']);
 });

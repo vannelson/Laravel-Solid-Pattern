@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class TenantReportService implements TenantReportServiceInterface
 {
@@ -233,6 +234,530 @@ class TenantReportService implements TenantReportServiceInterface
                 'suggested_poll_seconds' => 300,
             ],
         ];
+    }
+
+    public function getUpcomingBookings(User $tenant, array $filters = []): array
+    {
+        $normalised = $this->normaliseUpcomingFilters($filters);
+        $companyScope = $this->resolveCompanyScope($tenant, $normalised['company_id']);
+
+        $currency = $this->resolveCurrency(Arr::get($filters, 'currency'), $companyScope);
+
+        if (empty($companyScope)) {
+            return $this->emptyUpcomingPayload($normalised, $currency);
+        }
+
+        $appTz = config('app.timezone', 'UTC');
+        $startForQuery = $normalised['start']->copy()->setTimezone($appTz)->toDateTimeString();
+        $endForQuery = $normalised['end']->copy()->setTimezone($appTz)->toDateTimeString();
+
+        $bookings = Booking::query()
+            ->with(['car', 'borrower', 'company'])
+            ->whereIn('company_id', $companyScope)
+            ->whereNotIn('status', self::EXCLUDED_BOOKING_STATUSES)
+            ->whereBetween('start_date', [$startForQuery, $endForQuery])
+            ->orderBy('start_date')
+            ->limit($normalised['limit'])
+            ->get();
+
+        $bookingIds = $bookings->pluck('id');
+
+        $payments = Payment::query()
+            ->whereIn('booking_id', $bookingIds)
+            ->where('status', 'Paid')
+            ->select('booking_id', 'amount')
+            ->get()
+            ->groupBy('booking_id');
+
+        $timezone = $normalised['timezone'];
+
+        $items = $bookings->map(function (Booking $booking) use ($payments, $currency, $timezone) {
+            $bookingPaid = ($payments[$booking->id] ?? collect())->sum('amount');
+            $totalAmount = (float) $booking->total_amount;
+            $balance = max($totalAmount - $bookingPaid, 0);
+
+            $pickup = Carbon::parse($booking->start_date, config('app.timezone', 'UTC'))
+                ->setTimezone($timezone)
+                ->toIso8601String();
+
+            $returnReference = $booking->actual_return_date
+                ?? $booking->end_date
+                ?? $booking->expected_return_date
+                ?? $booking->start_date;
+
+            $dropoff = Carbon::parse($returnReference, config('app.timezone', 'UTC'))
+                ->setTimezone($timezone)
+                ->toIso8601String();
+
+            $renterName = trim(implode(' ', array_filter([
+                $booking->renter_first_name,
+                $booking->renter_middle_name,
+                $booking->renter_last_name,
+            ])));
+
+            if ($renterName === '' && $booking->borrower) {
+                $renterName = trim(implode(' ', array_filter([
+                    $booking->borrower->first_name ?? null,
+                    $booking->borrower->last_name ?? null,
+                ])));
+            }
+
+            $car = $booking->car;
+            $vehicleName = $car ? $this->buildVehicleName($car) : null;
+
+            return [
+                'booking_id' => sprintf('BK-%06d', $booking->id),
+                'status' => $booking->status,
+                'pickup_at' => $pickup,
+                'dropoff_at' => $dropoff,
+                'renter' => [
+                    'name' => $renterName !== '' ? $renterName : null,
+                    'phone' => $booking->renter_phone_number ?? ($booking->borrower->phone_number ?? null),
+                ],
+                'vehicle' => [
+                    'id' => $car->id ?? null,
+                    'name' => $vehicleName,
+                    'plate_no' => $car->info_plateNumber ?? null,
+                    'class' => $car ? $this->normaliseCarTypeLabel($car->info_carType ?? '') : null,
+                ],
+                'pickup_location' => optional($booking->company)->address,
+                'dropoff_location' => $booking->destination,
+                'amount' => [
+                    'currency' => $currency,
+                    'total' => round($totalAmount, 2),
+                    'paid' => round($bookingPaid, 2),
+                    'balance' => round($balance, 2),
+                ],
+                'notes' => null,
+            ];
+        })->values();
+
+        $waitlist = [];
+        if ($normalised['include_waitlist']) {
+            $waitlist = [];
+        }
+
+        return [
+            'company_id' => $normalised['company_id'] ?? (count($companyScope) === 1 ? $companyScope[0] : null),
+            'timezone' => $timezone,
+            'window' => [
+                'start' => $normalised['start']->toDateString(),
+                'end' => $normalised['end']->toDateString(),
+                'generated_at' => $normalised['generated_at']->copy()->setTimezone($timezone)->toIso8601String(),
+            ],
+            'items' => $items->all(),
+            'waitlist' => $waitlist,
+            'totals' => [
+                'scheduled' => $items->count(),
+                'waitlisted' => count($waitlist),
+            ],
+        ];
+    }
+
+    public function getTopPerformers(User $tenant, array $filters = []): array
+    {
+        $normalised = $this->normaliseTopPerformersFilters($filters);
+        $companyScope = $this->resolveCompanyScope($tenant, $normalised['company_id']);
+
+        $currency = $this->resolveCurrency(Arr::get($filters, 'currency'), $companyScope);
+
+        if (empty($companyScope)) {
+            return $this->emptyTopPerformersPayload($normalised, $currency);
+        }
+
+        $carsQuery = Car::query()
+            ->whereIn('company_id', $companyScope);
+
+        if ($normalised['vehicle_class']) {
+            $carsQuery->whereRaw('LOWER(info_carType) = ?', [Str::lower($normalised['vehicle_class'])]);
+        }
+
+        $cars = $carsQuery->get();
+
+        if ($cars->isEmpty()) {
+            return $this->emptyTopPerformersPayload($normalised, $currency);
+        }
+
+        $carIds = $cars->pluck('id')->all();
+
+        $currentMetrics = $this->collectPerformerMetrics(
+            $carIds,
+            $normalised['range_start'],
+            $normalised['range_end'],
+            $normalised['timezone']
+        );
+
+        $previousMetrics = $this->collectPerformerMetrics(
+            $carIds,
+            $normalised['previous_start'],
+            $normalised['previous_end'],
+            $normalised['timezone']
+        );
+
+        $carsById = $cars->keyBy('id');
+
+        $items = collect($carIds)->map(function ($carId) use ($carsById, $currentMetrics, $previousMetrics) {
+            $car = $carsById->get($carId);
+
+            $current = $currentMetrics[$carId] ?? $this->emptyPerformerMetrics();
+            $previous = $previousMetrics[$carId] ?? null;
+
+            $trend = $this->buildPerformerTrend($current, $previous);
+
+            return [
+                'vehicle_id' => $carId,
+                'name' => $car ? $this->buildVehicleName($car) : null,
+                'plate_no' => $car->info_plateNumber ?? null,
+                'class' => $car ? $this->normaliseCarTypeLabel($car->info_carType ?? '') : null,
+                'image_url' => $car->profileImage ?? null,
+                'metrics' => [
+                    'revenue' => round($current['revenue'], 2),
+                    'bookings' => $current['bookings'],
+                    'occupancy_rate' => round($current['occupancy_rate'], 4),
+                    'utilization_rate' => round($current['utilization_rate'], 4),
+                    'avg_daily_rate' => round($current['avg_daily_rate'], 2),
+                ],
+                'trend' => $trend,
+            ];
+        });
+
+        $metricKey = match ($normalised['metric']) {
+            'occupancy' => fn ($item) => $item['metrics']['occupancy_rate'],
+            'utilization' => fn ($item) => $item['metrics']['utilization_rate'],
+            default => fn ($item) => $item['metrics']['revenue'],
+        };
+
+        $leaders = $items
+            ->sortByDesc($metricKey)
+            ->take($normalised['limit'])
+            ->values();
+
+        $leadersRevenue = $leaders->sum(fn ($item) => $item['metrics']['revenue']);
+        $totalRevenue = $items->sum(fn ($item) => $item['metrics']['revenue']);
+
+        $leadersShare = $totalRevenue > 0 ? round(($leadersRevenue / $totalRevenue) * 100, 2) : null;
+
+        $response = [
+            'company_id' => $normalised['company_id'] ?? (count($companyScope) === 1 ? $companyScope[0] : null),
+            'preset' => $normalised['preset'],
+            'metric' => $normalised['metric'],
+            'currency' => $currency,
+            'vehicle_class' => $normalised['vehicle_class'],
+            'range' => [
+                'start' => $normalised['range_start']->toDateString(),
+                'end' => $normalised['range_end']->toDateString(),
+                'as_of' => $normalised['range_end']->copy()->setTimezone($normalised['timezone'])->toIso8601String(),
+            ],
+            'leaders' => $leaders->all(),
+        ];
+
+        if ($normalised['include_totals']) {
+            $response['totals'] = [
+                'fleet_count' => $cars->count(),
+                'leaders_revenue' => round($leadersRevenue, 2),
+                'leaders_share_pct' => $leadersShare,
+            ];
+        }
+
+        return $response;
+    }
+
+    protected function normaliseUpcomingFilters(array $filters): array
+    {
+        $timezone = $this->resolveTimezone(Arr::get($filters, 'timezone'));
+        $companyId = Arr::has($filters, 'company_id') ? (int) Arr::get($filters, 'company_id') : null;
+
+        $limit = (int) ($filters['limit'] ?? 10);
+        $limit = max(1, min(50, $limit));
+
+        $includeWaitlist = Arr::get($filters, 'include_waitlist');
+        $includeWaitlist = $includeWaitlist === null ? false : (bool) $includeWaitlist;
+
+        $startInput = Arr::get($filters, 'start_date');
+        $endInput = Arr::get($filters, 'end_date');
+
+        $start = $startInput
+            ? Carbon::createFromFormat('Y-m-d', $startInput, $timezone)->startOfDay()
+            : now($timezone)->startOfDay();
+
+        $end = $endInput
+            ? Carbon::createFromFormat('Y-m-d', $endInput, $timezone)->endOfDay()
+            : $start->copy()->addDays(14)->endOfDay();
+
+        if ($end->lt($start)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        $maxEnd = $start->copy()->addDays(60)->endOfDay();
+        if ($end->gt($maxEnd)) {
+            $end = $maxEnd;
+        }
+
+        $generatedAt = now($timezone);
+
+        return [
+            'company_id' => $companyId,
+            'timezone' => $timezone,
+            'start' => $start,
+            'end' => $end,
+            'limit' => $limit,
+            'include_waitlist' => $includeWaitlist,
+            'generated_at' => $generatedAt,
+        ];
+    }
+
+    protected function emptyUpcomingPayload(array $filters, string $currency): array
+    {
+        return [
+            'company_id' => $filters['company_id'],
+            'timezone' => $filters['timezone'],
+            'window' => [
+                'start' => $filters['start']->toDateString(),
+                'end' => $filters['end']->toDateString(),
+                'generated_at' => $filters['generated_at']->copy()->setTimezone($filters['timezone'])->toIso8601String(),
+            ],
+            'items' => [],
+            'waitlist' => [],
+            'totals' => [
+                'scheduled' => 0,
+                'waitlisted' => 0,
+            ],
+        ];
+    }
+
+    protected function normaliseTopPerformersFilters(array $filters): array
+    {
+        $timezone = $this->resolveTimezone(Arr::get($filters, 'timezone'));
+        $companyId = Arr::has($filters, 'company_id') ? (int) Arr::get($filters, 'company_id') : null;
+        $metric = Str::lower((string) Arr::get($filters, 'metric', 'revenue'));
+        $metric = in_array($metric, ['revenue', 'occupancy', 'utilization'], true) ? $metric : 'revenue';
+
+        $preset = Str::lower((string) Arr::get($filters, 'preset', 'rolling_30'));
+        $preset = in_array($preset, ['rolling_30', 'rolling_90', 'month_to_date', 'year_to_date', 'custom'], true)
+            ? $preset
+            : 'rolling_30';
+
+        $limit = (int) ($filters['limit'] ?? 5);
+        $limit = max(1, min(20, $limit));
+
+        $vehicleClass = Arr::get($filters, 'vehicle_class');
+        $vehicleClass = $vehicleClass ? $this->normaliseCarTypeLabel($vehicleClass) : null;
+
+        $includeTotals = Arr::get($filters, 'include_totals');
+        $includeTotals = $includeTotals === null ? true : (bool) $includeTotals;
+
+        $asOfInput = Arr::get($filters, 'as_of');
+        $asOf = $asOfInput
+            ? Carbon::createFromFormat('Y-m-d', $asOfInput, $timezone)->endOfDay()
+            : now($timezone)->endOfDay();
+
+        if ($preset === 'custom') {
+            $rangeStart = Carbon::createFromFormat('Y-m-d', $filters['start_date'], $timezone)->startOfDay();
+            $rangeEnd = Carbon::createFromFormat('Y-m-d', $filters['end_date'], $timezone)->endOfDay();
+        } elseif ($preset === 'rolling_90') {
+            $rangeEnd = $asOf->copy();
+            $rangeStart = $rangeEnd->copy()->subDays(89)->startOfDay();
+        } elseif ($preset === 'month_to_date') {
+            $rangeEnd = $asOf->copy();
+            $rangeStart = Carbon::create($asOf->year, $asOf->month, 1, 0, 0, 0, $timezone)->startOfDay();
+        } elseif ($preset === 'year_to_date') {
+            $rangeEnd = $asOf->copy();
+            $rangeStart = Carbon::create($asOf->year, 1, 1, 0, 0, 0, $timezone)->startOfDay();
+        } else { // rolling_30
+            $rangeEnd = $asOf->copy();
+            $rangeStart = $rangeEnd->copy()->subDays(29)->startOfDay();
+        }
+
+        if ($rangeEnd->lt($rangeStart)) {
+            [$rangeStart, $rangeEnd] = [$rangeEnd->copy()->startOfDay(), $rangeStart->copy()->endOfDay()];
+        }
+
+        $totalDays = max(1, $rangeStart->diffInDays($rangeEnd) + 1);
+        $previousEnd = $rangeStart->copy()->subDay()->endOfDay();
+        $previousStart = $previousEnd->copy()->subDays($totalDays - 1)->startOfDay();
+
+        return [
+            'company_id' => $companyId,
+            'timezone' => $timezone,
+            'preset' => $preset,
+            'metric' => $metric,
+            'limit' => $limit,
+            'vehicle_class' => $vehicleClass,
+            'include_totals' => $includeTotals,
+            'range_start' => $rangeStart,
+            'range_end' => $rangeEnd,
+            'previous_start' => $previousStart,
+            'previous_end' => $previousEnd,
+        ];
+    }
+
+    protected function emptyTopPerformersPayload(array $filters, string $currency): array
+    {
+        $response = [
+            'company_id' => $filters['company_id'],
+            'preset' => $filters['preset'],
+            'metric' => $filters['metric'],
+            'currency' => $currency,
+            'vehicle_class' => $filters['vehicle_class'],
+            'range' => [
+                'start' => $filters['range_start']->toDateString(),
+                'end' => $filters['range_end']->toDateString(),
+                'as_of' => $filters['range_end']->copy()->setTimezone($filters['timezone'])->toIso8601String(),
+            ],
+            'leaders' => [],
+        ];
+
+        if ($filters['include_totals']) {
+            $response['totals'] = [
+                'fleet_count' => 0,
+                'leaders_revenue' => 0.0,
+                'leaders_share_pct' => null,
+            ];
+        }
+
+        return $response;
+    }
+
+    protected function collectPerformerMetrics(array $carIds, Carbon $start, Carbon $end, string $timezone): array
+    {
+        $metrics = [];
+        foreach ($carIds as $carId) {
+            $metrics[$carId] = $this->emptyPerformerMetrics();
+        }
+
+        if (empty($carIds)) {
+            return $metrics;
+        }
+
+        $appTz = config('app.timezone', 'UTC');
+        $startQuery = $start->copy()->setTimezone($appTz)->toDateTimeString();
+        $endQuery = $end->copy()->setTimezone($appTz)->toDateTimeString();
+
+        $bookings = Booking::query()
+            ->select(['id', 'car_id', 'start_date', 'end_date', 'expected_return_date', 'actual_return_date'])
+            ->whereIn('car_id', $carIds)
+            ->whereNotIn('status', self::EXCLUDED_BOOKING_STATUSES)
+            ->where(function ($query) use ($startQuery, $endQuery) {
+                $query->whereBetween('start_date', [$startQuery, $endQuery])
+                    ->orWhereBetween('end_date', [$startQuery, $endQuery])
+                    ->orWhere(function ($inner) use ($startQuery, $endQuery) {
+                        $inner->where('start_date', '<=', $startQuery)
+                            ->where('end_date', '>=', $endQuery);
+                    });
+            })
+            ->get();
+
+        $totalSeconds = max(1, $start->copy()->diffInSeconds($end));
+        $totalHoursRange = $totalSeconds / 3600;
+        $totalDaysRange = $totalSeconds / 86400;
+
+        foreach ($bookings as $booking) {
+            $carId = (int) $booking->car_id;
+
+            if (!isset($metrics[$carId])) {
+                continue;
+            }
+
+            $bookingStart = Carbon::parse($booking->start_date, $appTz)->setTimezone($timezone);
+            $returnReference = $booking->actual_return_date
+                ?? $booking->end_date
+                ?? $booking->expected_return_date
+                ?? $booking->start_date;
+            $bookingEnd = Carbon::parse($returnReference, $appTz)->setTimezone($timezone);
+
+            if ($bookingEnd->lt($bookingStart)) {
+                $bookingEnd = $bookingStart->copy();
+            }
+
+            $overlapStart = $bookingStart->greaterThan($start) ? $bookingStart : $start->copy();
+            $overlapEnd = $bookingEnd->lessThan($end) ? $bookingEnd : $end->copy();
+
+            if ($overlapEnd->lte($overlapStart)) {
+                continue;
+            }
+
+            $hours = max(0, $overlapEnd->diffInSeconds($overlapStart)) / 3600;
+            $metrics[$carId]['bookings'] += 1;
+            $metrics[$carId]['booked_hours'] += $hours;
+        }
+
+        $revenueRows = Payment::query()
+            ->join('bookings', 'payments.booking_id', '=', 'bookings.id')
+            ->whereIn('bookings.car_id', $carIds)
+            ->where('payments.status', 'Paid')
+            ->whereBetween('payments.paid_at', [$startQuery, $endQuery])
+            ->select('bookings.car_id', DB::raw('SUM(payments.amount) as revenue'))
+            ->groupBy('bookings.car_id')
+            ->get();
+
+        foreach ($revenueRows as $row) {
+            $carId = (int) $row->car_id;
+            if (isset($metrics[$carId])) {
+                $metrics[$carId]['revenue'] = (float) $row->revenue;
+            }
+        }
+
+        foreach ($metrics as $carId => &$data) {
+            $data['booked_days'] = $data['booked_hours'] / 24;
+            $data['occupancy_rate'] = $totalDaysRange > 0 ? min(1.0, round($data['booked_days'] / $totalDaysRange, 4)) : 0.0;
+            $data['utilization_rate'] = $totalHoursRange > 0 ? min(1.0, round($data['booked_hours'] / $totalHoursRange, 4)) : 0.0;
+            $data['avg_daily_rate'] = $data['booked_days'] > 0 ? round($data['revenue'] / $data['booked_days'], 2) : 0.0;
+        }
+        unset($data);
+
+        return $metrics;
+    }
+
+    protected function emptyPerformerMetrics(): array
+    {
+        return [
+            'revenue' => 0.0,
+            'bookings' => 0,
+            'booked_hours' => 0.0,
+            'booked_days' => 0.0,
+            'occupancy_rate' => 0.0,
+            'utilization_rate' => 0.0,
+            'avg_daily_rate' => 0.0,
+        ];
+    }
+
+    protected function buildPerformerTrend(array $current, ?array $previous): ?array
+    {
+        if ($previous === null) {
+            return null;
+        }
+
+        $trend = [
+            'previous_revenue' => round($previous['revenue'], 2),
+            'revenue_change_pct' => $this->percentDelta($previous['revenue'], $current['revenue']),
+            'previous_occupancy_rate' => round($previous['occupancy_rate'], 4),
+            'occupancy_change_pct' => $this->percentDelta($previous['occupancy_rate'], $current['occupancy_rate']),
+            'previous_utilization_rate' => round($previous['utilization_rate'], 4),
+            'utilization_change_pct' => $this->percentDelta($previous['utilization_rate'], $current['utilization_rate']),
+        ];
+
+        $filtered = array_filter($trend, static fn ($value) => $value !== null);
+
+        return empty($filtered) ? null : $filtered;
+    }
+
+    protected function buildVehicleName(?Car $car): ?string
+    {
+        if ($car === null) {
+            return null;
+        }
+
+        $parts = array_filter([
+            $car->info_make ?? null,
+            $car->info_model ?? null,
+            $car->info_year ?? null,
+        ]);
+
+        if (!empty($parts)) {
+            return trim(implode(' ', $parts));
+        }
+
+        return $car->info_plateNumber ?? null;
     }
 
     /**
