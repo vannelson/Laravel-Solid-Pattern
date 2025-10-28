@@ -16,6 +16,8 @@ class CompanyUpdateRequest extends FormRequest
         return [
             'name'     => 'sometimes|string|max:255',
             'address'  => 'nullable|string|max:255',
+            'latitude' => 'sometimes|numeric|between:-90,90',
+            'longitude'=> 'sometimes|numeric|between:-180,180',
             'industry' => 'nullable|string|max:255',
             'logo'     => 'sometimes|image|max:2048',
             'is_default' => 'sometimes|boolean',
@@ -35,6 +37,21 @@ class CompanyUpdateRequest extends FormRequest
             $normalized = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             if ($normalized !== null) {
                 $this->merge(['is_default' => $normalized]);
+            }
+        }
+
+        foreach (['latitude', 'longitude'] as $key) {
+            if ($this->has($key)) {
+                $value = $this->input($key);
+                if ($value === '' || $value === null) {
+                    $this->merge([$key => null]);
+                    continue;
+                }
+
+                $normalized = filter_var($value, FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
+                if ($normalized !== null) {
+                    $this->merge([$key => $normalized]);
+                }
             }
         }
     }

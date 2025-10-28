@@ -13,9 +13,17 @@ class Company extends Model
         'user_id',
         'name',
         'address',
+        'latitude',
+        'longitude',
         'industry',
         'is_default',
         'logo',
+    ];
+
+    protected $casts = [
+        'is_default' => 'boolean',
+        'latitude'   => 'float',
+        'longitude'  => 'float',
     ];
 
     /**

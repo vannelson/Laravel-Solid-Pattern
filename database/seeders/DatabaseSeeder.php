@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             TenantWalkInBookingSeeder::class,
             TenantHistoricalWalkInBookingSeeder::class,
             TenantHighVolumeWalkInBookingSeeder::class,
+            BorrowerUserSeeder::class,
         ]);
     }
 }

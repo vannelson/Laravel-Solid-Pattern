@@ -24,6 +24,8 @@ class CompanySeeder extends Seeder
                 'user_id'  => User::inRandomOrder()->first()->id,
                 'name'     => $faker->company,
                 'address'  => $faker->address,
+                'latitude' => $faker->latitude(),
+                'longitude'=> $faker->longitude(),
                 'industry' => $faker->word,
             ]);
         }

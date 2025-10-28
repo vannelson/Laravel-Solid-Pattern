@@ -76,25 +76,25 @@ class TenantCompanySeeder extends Seeder
     protected function seedCompanies(array $tenants): void
     {
         $tenantCompanies = [
-            ['Metro Mobility Fleet', 'Ortigas Center, Pasig', 'Corporate Shuttle'],
-            ['Airport Shuttle Partners', 'NAIA Terminal 3, Pasay', 'Travel'],
-            ['VisMin Executive Transport', 'Cebu IT Park, Cebu City', 'Executive Transport'],
-            ['NorthLink Fleet', 'UP Technohub, Quezon City', 'Staff Transport'],
-            ['SouthPoint Mobility', 'Alabang Business District', 'Logistics'],
-            ['Island Hopper Transport', 'Lapu-Lapu City, Cebu', 'Tourism'],
-            ['Prime Horizon Fleet', 'Global City, Taguig', 'Corporate'],
-            ['Skyway Services', 'Skyway, Muntinlupa', 'Airport Runs'],
-            ['GreenRoute Vans', 'Nuvali, Sta. Rosa', 'Shuttle'],
-            ['CityLink Mobility', 'Makati CBD', 'Corporate'],
-            ['MetroEast Shuttle', 'Marikina City', 'Commuter'],
-            ['WestDrive Vans', 'West Avenue, QC', 'Operations'],
-            ['Laguna Loop Transit', 'Sta. Rosa, Laguna', 'Industrial'],
-            ['Northern Wheels', 'Baguio City', 'Tourist'],
-            ['Sunrise Fleet', 'Clark Freeport, Pampanga', 'Logistics'],
-            ['Coastline Mobility', 'Subic Bay Freeport', 'Port Services'],
+            ['Metro Mobility Fleet', 'Ortigas Center, Pasig', 'Corporate Shuttle', 14.5869, 121.0617],
+            ['Airport Shuttle Partners', 'NAIA Terminal 3, Pasay', 'Travel', 14.5123, 121.0197],
+            ['VisMin Executive Transport', 'Cebu IT Park, Cebu City', 'Executive Transport', 10.3247, 123.9050],
+            ['NorthLink Fleet', 'UP Technohub, Quezon City', 'Staff Transport', 14.6573, 121.0647],
+            ['SouthPoint Mobility', 'Alabang Business District', 'Logistics', 14.4170, 121.0415],
+            ['Island Hopper Transport', 'Lapu-Lapu City, Cebu', 'Tourism', 10.3103, 123.9495],
+            ['Prime Horizon Fleet', 'Global City, Taguig', 'Corporate', 14.5410, 121.0437],
+            ['Skyway Services', 'Skyway, Muntinlupa', 'Airport Runs', 14.4076, 121.0461],
+            ['GreenRoute Vans', 'Nuvali, Sta. Rosa', 'Shuttle', 14.2545, 121.0569],
+            ['CityLink Mobility', 'Makati CBD', 'Corporate', 14.5547, 121.0198],
+            ['MetroEast Shuttle', 'Marikina City', 'Commuter', 14.6507, 121.1029],
+            ['WestDrive Vans', 'West Avenue, QC', 'Operations', 14.6469, 121.0281],
+            ['Laguna Loop Transit', 'Sta. Rosa, Laguna', 'Industrial', 14.2786, 121.0894],
+            ['Northern Wheels', 'Baguio City', 'Tourist', 16.4023, 120.5960],
+            ['Sunrise Fleet', 'Clark Freeport, Pampanga', 'Logistics', 15.1860, 120.5606],
+            ['Coastline Mobility', 'Subic Bay Freeport', 'Port Services', 14.7870, 120.2510],
         ];
 
-        foreach ($tenantCompanies as $index => [$name, $address, $industry]) {
+        foreach ($tenantCompanies as $index => [$name, $address, $industry, $latitude, $longitude]) {
             $tenant = $tenants[$index % count($tenants)];
 
             Company::updateOrCreate(
@@ -105,6 +105,8 @@ class TenantCompanySeeder extends Seeder
                 [
                     'address'    => $address,
                     'industry'   => $industry,
+                    'latitude'   => $latitude,
+                    'longitude'  => $longitude,
                     'is_default' => true,
                 ]
             );
@@ -112,11 +114,11 @@ class TenantCompanySeeder extends Seeder
 
         // Give the first two tenants a second company each.
         $bonusCompanies = [
-            [$tenants[0], 'Metro Mobility Fleet - South', 'Parañaque City', 'Corporate Shuttle'],
-            [$tenants[1], 'Airport Shuttle Partners - Cebu', 'Mactan Cebu Airport', 'Travel'],
+            [$tenants[0], 'Metro Mobility Fleet - South', 'Paranaque City', 'Corporate Shuttle', 14.4793, 120.9820],
+            [$tenants[1], 'Airport Shuttle Partners - Cebu', 'Mactan Cebu Airport', 'Travel', 10.3133, 123.9827],
         ];
 
-        foreach ($bonusCompanies as [$tenant, $name, $address, $industry]) {
+        foreach ($bonusCompanies as [$tenant, $name, $address, $industry, $latitude, $longitude]) {
             Company::updateOrCreate(
                 [
                     'user_id' => $tenant->id,
@@ -125,9 +127,12 @@ class TenantCompanySeeder extends Seeder
                 [
                     'address'    => $address,
                     'industry'   => $industry,
+                    'latitude'   => $latitude,
+                    'longitude'  => $longitude,
                     'is_default' => false,
                 ]
             );
         }
     }
 }
+

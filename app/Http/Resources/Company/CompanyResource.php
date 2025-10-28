@@ -16,6 +16,8 @@ class CompanyResource extends JsonResource
             'id'       => $this->id,
             'name'     => $this->name,
             'address'  => $this->address,
+            'latitude' => $this->latitude !== null ? (float) $this->latitude : null,
+            'longitude'=> $this->longitude !== null ? (float) $this->longitude : null,
             'industry' => $this->industry,
             'is_default' => (bool) $this->is_default,
             'logo'     => $this->logo,

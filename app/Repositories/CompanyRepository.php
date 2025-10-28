@@ -47,6 +47,14 @@ class CompanyRepository extends BaseRepository implements CompanyRepositoryInter
             $query->where('address', 'LIKE', "%$address%");
         }
 
+        if (($latitude = Arr::get($filters, 'latitude')) !== null) {
+            $query->where('latitude', $latitude);
+        }
+
+        if (($longitude = Arr::get($filters, 'longitude')) !== null) {
+            $query->where('longitude', $longitude);
+        }
+
         // Apply ordering (default: id desc)
         [$orderBy, $dir] = !empty($order) ? $order : ['id', 'desc'];
         $query->orderBy($orderBy, $dir);
