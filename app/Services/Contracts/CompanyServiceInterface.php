@@ -41,11 +41,18 @@ interface CompanyServiceInterface
     public function update(int $id, array $data);
 
     /**
+     * Locate nearby companies around a coordinate.
+     *
+     * @param array $params
+     * @return array
+     */
+    public function findNearby(array $params): array;
+
+    /**
      * Delete a user.
      *
      * @param int $id
      * @return bool
      */
     public function delete(int $id);
-
 }

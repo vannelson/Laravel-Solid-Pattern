@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Company\CompanyNearbyRequest;
 use App\Http\Requests\Company\CompanyStoreRequest;
 use App\Http\Requests\Company\CompanyUpdateRequest;
 use App\Services\Contracts\CompanyServiceInterface;
@@ -42,6 +43,19 @@ class CompanyController extends Controller
         } catch (\Exception $e) {
             return $this->error('Failed to load song.', 500);
         }
+    }
+
+    /**
+     * Locate nearby companies based on coordinates.
+     */
+    public function nearby(CompanyNearbyRequest $request): JsonResponse
+    {
+        // try {
+            $result = $this->companyService->findNearby($request->validated());
+            return response()->json($result);
+        // } catch (\Exception $e) {
+        //     return $this->error('Failed to load nearby companies.', 500);
+        // }
     }
 
     /**
