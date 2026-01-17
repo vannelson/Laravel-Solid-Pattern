@@ -53,6 +53,8 @@ use App\Services\Contracts\TenantMetricsServiceInterface;
 use App\Services\TenantMetricsService;
 use App\Services\Contracts\TenantReportServiceInterface;
 use App\Services\Reports\TenantReportService;
+use App\Services\Contracts\TranscriptServiceInterface;
+use App\Services\TranscriptService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -102,5 +104,8 @@ class AppServiceProvider extends ServiceProvider
         // Registering SongServiceInterface and its implementation
         $this->app->bind(SongServiceInterface::class, SongService::class);
         $this->app->bind(SongRepositoryInterface::class, SongRepository::class);
+
+        // Registering TranscriptServiceInterface and its implementation
+        $this->app->bind(TranscriptServiceInterface::class, TranscriptService::class);
     }
 }

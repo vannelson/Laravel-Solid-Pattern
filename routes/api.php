@@ -15,6 +15,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\TenantDashboardController;
 use App\Http\Controllers\TenantReportController;
+use App\Http\Controllers\TranscriptController;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,6 +35,13 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 */
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+
+/*
+|--------------------------------------------------------------------------
+| Transcripts
+|--------------------------------------------------------------------------
+*/
+Route::post('transcripts/upload', [TranscriptController::class, 'upload']);
 
 /*
 |--------------------------------------------------------------------------
